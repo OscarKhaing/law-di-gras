@@ -182,7 +182,14 @@ export function describeError(err: unknown): { status: number; type: string; mes
     return { status: 502, type: "connection_error", message: "Could not reach the Anthropic API." };
   }
   if (err instanceof Anthropic.APIError) {
-    return { status: err.status ?? 500, type: err.type ?? "api_error", message: err.message };
+    // err.message is "<status> <raw JSON body>"; prefer the API's own message when the body has one.
+    const body = err.error as { error?: { message?: unknown } } | undefined;
+    const apiMessage = body?.error?.message;
+    return {
+      status: err.status ?? 500,
+      type: err.type ?? "api_error",
+      message: typeof apiMessage === "string" ? apiMessage : err.message,
+    };
   }
   return {
     status: 500,
