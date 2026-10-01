@@ -11,7 +11,7 @@ abstractions that aren't needed today.
 
 - `pnpm dev` — app on http://localhost:3000
 - `pnpm check-llm` — runs every LLM path against the real API (needs `ANTHROPIC_API_KEY` in `.env.local`)
-- `pnpm script scripts/<file>.ts` — run a script with `.env.local` loaded and server modules importable
+- `pnpm script scripts/<file>.ts` — run a script with `.env.local` loaded
 - `pnpm typecheck` / `pnpm lint` / `pnpm build`
 - `pnpm dlx shadcn@latest add <component>` — add UI components
 
@@ -70,9 +70,10 @@ Existing features: `documents` (upload → extract → human review) and `cases`
   `server.ts`, and returns its result or `errorResponse(err)`. No prompts, schemas or model calls in
   `app/`.
 - Use the fixed file names above inside a feature, so every feature reads the same way.
-- `src/server/**` and every feature's `server.ts` are server-only. They are guarded by the
-  `server-only` package: importing one from a `"use client"` file fails the build. Client components
-  may import a feature's `schema.ts` with `import type`.
+- `src/server/**` and every feature's `server.ts` are server-only: never import them from a
+  `"use client"` file. Nothing enforces this; the symptom of getting it wrong is a misleading
+  "ANTHROPIC_API_KEY is not set" error in the browser. Client components may import a feature's
+  `schema.ts` with `import type`.
 - `src/lib/` must stay safe to import in the browser: no secrets, no `process.env`, no Node APIs.
 - Imports: relative (`./schema`) inside a feature, `@/…` everywhere else. A feature imports from
   `@/server`, `@/lib` and `@/components`; if two features need the same code, move it up into one of
