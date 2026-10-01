@@ -43,3 +43,6 @@ next-env.d.ts
 
 # the hackathon hosts' brief and sample files
 /challenge/
+
+# output of scripts/screenshot.ts
+/screenshots/

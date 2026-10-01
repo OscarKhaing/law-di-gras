@@ -39,6 +39,7 @@ Errors come back as `{ error: { type, message } }`.
 |---|---|
 | `pnpm check-llm` | Runs every model path against the real API |
 | `pnpm -s script scripts/extract-file.ts <file>` | Extracts a local file and prints the JSON; no size or time limit from the server |
+| `pnpm -s script scripts/screenshot.ts <path>` | Saves a picture of a page (after optional clicks or an upload) to `screenshots/`; needs `pnpm dev` running and Chrome |
 | `pnpm -s script scripts/create-bucket.ts` | Creates the Storage bucket (once per Supabase project) |
 
 ## Structure

@@ -17,8 +17,9 @@ abstractions that aren't needed today.
    - What must be extracted or decided, what does a person review, and what happens after approval?
    - Does anything need to be saved? If so, which tables (see "Database" below)?
    - What requirement did the brief leave unwritten (source links, audit trail, privacy)?
-3. Write the workflow as one sentence in "Project direction" below.
-4. Build in this order, checking each step on the real samples before the next:
+3. Fill in "Project direction" below: the user, their pain, the outcome and the one workflow.
+4. Write the screen-by-screen brief described in "Designing a screen" and agree it before coding.
+5. Build in this order, checking each step on the real samples before the next:
    1. Change `FIELDS` and the prompt, and run `pnpm -s script scripts/extract-file.ts challenge/<file>`
       until the output is right. This loop needs no browser.
    2. Adapt the review screen's wording, then whatever happens after Approve.
@@ -26,8 +27,12 @@ abstractions that aren't needed today.
 
 ## Hard rule: self-check before adding anything
 
-**Project direction:** _not set yet. At kickoff, replace this with one sentence naming the workflow
-the demo will show end to end._
+**Project direction:** _not set yet. At kickoff, replace this with four lines:_
+
+- _Primary user: the specific role doing this work today._
+- _Pain point: the one repetitive or difficult task._
+- _Successful outcome: what they will have accomplished._
+- _Workflow: one sentence naming what the demo shows end to end._
 
 Before adding a feature, dependency, abstraction, guard, config option or extra endpoint, stop and
 answer these four questions:
@@ -51,6 +56,48 @@ fails the check, say so before starting rather than building it silently.
 Two things already failed this check and were removed: a site-wide password gate (redundant once the
 API spend cap was set) and a `server-only` import guard (a dependency and a script flag to enforce
 what the folder layout already shows).
+
+## Designing a screen
+
+Design the smallest complete journey first, on paper, before any code. One polished path beats
+three half-built screens.
+
+For each screen in the journey, write down:
+
+- Why the user is here.
+- What they need to see to make their decision.
+- The one main action, and what happens after it.
+- The loading, empty, success and error states.
+- How they undo a mistake or get back to earlier work.
+
+Rules for this app:
+
+- Use the words of the user's role (see "PI vocabulary"), not ours. "Extract" and "fields" are our
+  words; a case manager pulls facts from a record.
+- Anything the model produced is shown beside its source, can be edited, and is approved by a person.
+- Keep it restrained: shadcn components as they come, no decoration. Amber means a person must look;
+  red means something failed. Do not use colour for anything else.
+- If more than one role is involved, state what each can see, edit and approve. Hiding a button is
+  not a permission; enforce it in the route.
+
+Before calling a screen done, capture each of its states with `scripts/screenshot.ts` and check them
+against these ten points (Nielsen's usability heuristics):
+
+1. **Status is visible** — every wait says what is happening.
+2. **The user's language** — labels and messages use their terms.
+3. **Control** — they can cancel, undo and reopen; there are no dead ends.
+4. **Consistency** — the same word and control for the same thing everywhere.
+5. **Error prevention** — block or confirm before work is lost or something is sent.
+6. **Recognition, not recall** — what they need is on the screen, not in their memory.
+7. **Efficiency** — exceptions come first; the common case takes one action.
+8. **Minimal** — nothing on the screen that the decision does not need.
+9. **Recoverable errors** — a message says what went wrong and what to do, and stays visible.
+10. **Help in place** — an empty screen says what to do next.
+
+Then have a teammate use it with no instructions. Wherever they hesitate is the next thing to fix.
+
+For components, look before building: `pnpm dlx shadcn@latest search @shadcn -q <word>` finds
+components and blocks, `docs <name>` links their documentation, and `add <name>` installs one.
 
 ## Current state (evening of 2026-10-01)
 
@@ -95,6 +142,8 @@ Local setup needs the same three variables in `.env.local` (see `.env.example`).
 - `pnpm dev` — app on http://localhost:3000
 - `pnpm check-llm` — runs every model path against the real API
 - `pnpm -s script scripts/extract-file.ts <file>` — extract a local file and print the JSON
+- `pnpm -s script scripts/screenshot.ts <path> [--click <text>] [--upload <file>] [--wait <ms>] [--out <png>]`
+  — take a picture of a page after some steps, then read the image (needs `pnpm dev` running)
 - `pnpm -s script scripts/<file>.ts` — run any script with `.env.local` loaded
 - `pnpm typecheck` / `pnpm lint` / `pnpm build`
 - `pnpm dlx shadcn@latest add <component>` — add a UI component
@@ -120,7 +169,7 @@ src/
     http.ts             Route helpers: parseJson, errorResponse.
   components/           UI shared across features (app-sidebar). `ui/` is shadcn-generated.
   lib/                  Browser-safe helpers only (fetchJson, postJson, cn).
-scripts/                check-llm, extract-file, create-bucket (one-time Storage setup).
+scripts/                check-llm, extract-file, screenshot, create-bucket (one-time Storage setup).
 public/demo/            A sample record and its precomputed extraction, opened by "Open sample".
 challenge/              The hosts' brief and sample files (git-ignored; create it at kickoff).
 ```
@@ -177,6 +226,12 @@ Limits that follow:
 - A file can be at most 23 MB, because the model accepts 32 MB per request and files are sent
   base64-encoded. Larger files would need the Files API.
 - The extract route stops the model call after 270 seconds. `scripts/extract-file.ts` has no limit.
+
+Usability gaps found when the review screen was checked against the ten points above, not yet fixed:
+
+- An extraction cannot be cancelled once started (point 3).
+- Choosing another file, or opening the sample, discards a review in progress without warning (5).
+- "Extract" is our word, not the user's (2). Rename it once the user's role is known.
 
 ## Adding a feature
 
@@ -247,9 +302,9 @@ reader loop in `src/app/playground/page.tsx` is the worked example.
 - Dynamic route `params` is a Promise in this Next.js version: `const { id } = await params`.
 - Creating an object URL or other state inside `useEffect` fails this repo's lint; do it in the event
   handler, as `choose` does in `document-review.tsx`.
-- To see a page instead of guessing: install `puppeteer-core` in the scratchpad (not in this repo),
-  launch the installed Chrome at `/Applications/Google Chrome.app` headless, and take a screenshot.
-  Headless Chrome renders the PDF viewer, so the review screen can be checked this way too.
+- Look at what you built instead of guessing: `scripts/screenshot.ts` drives the installed Chrome
+  headless and saves a picture to `screenshots/` (git-ignored). It renders the PDF viewer too, e.g.
+  `pnpm -s script scripts/screenshot.ts /cases/c-1001 --click "Open sample" --click "p. 11" --wait 2500`.
 
 ## Deployment
 

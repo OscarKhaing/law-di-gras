@@ -75,7 +75,7 @@ export function ReviewPanel({
   return (
     <div className="space-y-4">
       <div className="space-y-1">
-        <h2 className="text-base font-medium capitalize">{data.documentType}</h2>
+        <h3 className="text-base font-medium capitalize">{data.documentType}</h3>
         <p className="text-sm text-muted-foreground">{data.summary}</p>
         <p className="text-xs text-muted-foreground">
           {model} read {count.format(usage.inputTokens)} tokens
@@ -101,12 +101,12 @@ export function ReviewPanel({
       <div className="space-y-4">
         {groups.map((group) => (
           <section key={`${group.label}-${group.items[0].index}`} className="space-y-1.5">
-            <h3 className="text-sm font-medium">
+            <h4 className="text-sm font-medium">
               {group.label}
               {group.items.length > 1 && (
                 <span className="ml-1.5 font-normal text-muted-foreground">{group.items.length}</span>
               )}
-            </h3>
+            </h4>
             {group.items.map(({ row, index }) => {
               const status = statusOf(row);
               return (

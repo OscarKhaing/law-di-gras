@@ -125,6 +125,13 @@ export function DocumentReview() {
 
   return (
     <div className="space-y-4">
+      <div>
+        <h2 className="text-base font-medium">Review a document</h2>
+        <p className="text-sm text-muted-foreground">
+          Choose a PDF, image or text file to pull out its facts and check each one against the source, or
+          open the sample record to see how it works.
+        </p>
+      </div>
       <div className="flex flex-wrap items-center gap-2">
         <Input
           key={inputKey}
