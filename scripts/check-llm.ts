@@ -1,7 +1,9 @@
 // End-to-end check of the LLM layer against the real API: `pnpm check-llm`.
-// Exercises every path the app uses: plain completion, streaming, structured output, PDF input.
+// Exercises every path the app uses: plain completion, streaming, structured output, and document
+// extraction from PDFs (including page references).
 import { readFile } from "node:fs/promises";
 import { z } from "zod";
+import { FIELDS, needsReview } from "../src/features/documents/schema";
 import { extractDocument } from "../src/features/documents/server";
 import { complete, describeError, extract, MODEL, ping, streamText } from "../src/server/llm";
 
@@ -57,18 +59,33 @@ const checks: [name: string, run: () => Promise<string>][] = [
   [
     "pdf extraction",
     async () => {
-      const bytes = await readFile("fixtures/sample-collision-report.pdf");
-      const { data } = await extractDocument({
-        name: "sample-collision-report.pdf",
-        mediaType: "application/pdf",
-        bytes,
-      });
-      const total = data.amounts.reduce((sum, amount) => sum + amount.amountUsd, 0);
-      if (total !== 10425) throw new Error(`expected amounts totalling 10425, got ${total}`);
-      return `${data.documentType}; ${data.people.length} people, ${data.dates.length} dates, $${total}`;
+      const { fields } = await extractFixture("sample-collision-report.pdf");
+      const value = (label: string) => fields.find((field) => field.label === label)?.value ?? "";
+      if (!value("Client").includes("Riley Sample")) throw new Error(`wrong client: ${value("Client")}`);
+      if (value("Date of incident") !== "2026-03-14") throw new Error(`wrong date: ${value("Date of incident")}`);
+      return `${fields.filter((field) => field.value).length} of ${fields.length} fields found`;
+    },
+  ],
+  [
+    // The MRI is on page 7 of the file, which is stamped RS-000107: the page must be the position
+    // in the file, because that is what the review screen jumps to.
+    "page references",
+    async () => {
+      const { fields } = await extractFixture("sample-medical-record.pdf");
+      const mri = fields.find((field) => field.label === "Treatment" && /MRI/i.test(field.value));
+      if (mri?.page !== 7) throw new Error(`expected the MRI on page 7, got ${JSON.stringify(mri)}`);
+      const unknown = fields.filter((field) => !FIELDS.some((spec) => spec.label === field.label));
+      if (unknown.length) throw new Error(`unrequested labels: ${unknown.map((field) => field.label)}`);
+      return `${fields.length} fields, ${fields.filter(needsReview).length} flagged for review`;
     },
   ],
 ];
+
+async function extractFixture(name: string) {
+  const bytes = await readFile(`fixtures/${name}`);
+  const { data } = await extractDocument({ name, mediaType: "application/pdf", bytes });
+  return data;
+}
 
 async function main() {
   console.log(`Model: ${MODEL}\n`);

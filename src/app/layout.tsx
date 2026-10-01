@@ -35,7 +35,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <header className="flex h-12 items-center gap-2 border-b px-4">
                 <SidebarTrigger />
               </header>
-              <div className="mx-auto w-full max-w-5xl flex-1 p-6">{children}</div>
+              <div className="w-full flex-1 p-6">{children}</div>
             </SidebarInset>
           </SidebarProvider>
           <Toaster />

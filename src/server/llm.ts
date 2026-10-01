@@ -18,15 +18,6 @@ export class LlmError extends Error {
 
 export type LlmFile = { name: string; mediaType: string; bytes: Buffer };
 
-/** Convert a browser upload (a `File` from `request.formData()`) into an `LlmFile`. */
-export async function fileFromUpload(file: File): Promise<LlmFile> {
-  return {
-    name: file.name,
-    mediaType: file.type || "text/plain",
-    bytes: Buffer.from(await file.arrayBuffer()),
-  };
-}
-
 export type LlmRequest = {
   prompt: string;
   system?: string;
@@ -70,11 +61,16 @@ function fileBlock(file: LlmFile): Anthropic.ContentBlockParam {
       },
     };
   }
-  // Anything else is treated as plain text.
-  return {
-    type: "text",
-    text: `<document name="${file.name}">\n${file.bytes.toString("utf8")}\n</document>`,
-  };
+  if (file.mediaType.startsWith("text/") || file.mediaType === "application/json") {
+    return {
+      type: "text",
+      text: `<document name="${file.name}">\n${file.bytes.toString("utf8")}\n</document>`,
+    };
+  }
+  throw new LlmError(
+    `Unsupported file type "${file.mediaType}". Use a PDF, an image (JPEG, PNG, GIF, WebP) or a text file.`,
+    415,
+  );
 }
 
 function params(req: LlmRequest, defaultMaxTokens: number) {
@@ -118,10 +114,16 @@ export async function complete(req: LlmRequest) {
 
 /** Prompt (plus optional PDF/image/text files) in, JSON matching `schema` out. */
 export async function extract<T extends z.ZodType>(schema: T, req: LlmRequest) {
-  const message = await anthropic().messages.parse({
-    ...params(req, 16000),
-    output_config: { format: zodOutputFormat(schema) },
-  });
+  // Streamed so that a long document with a long answer is not cut off by an HTTP timeout.
+  const message = await anthropic()
+    .messages.stream({
+      ...params(req, 32000),
+      output_config: { format: zodOutputFormat(schema) },
+    })
+    .finalMessage();
+  if (message.stop_reason === "max_tokens") {
+    throw new LlmError("The model's answer was cut off because it was too long. Ask for less.", 502);
+  }
   if (message.parsed_output == null) {
     throw new LlmError(
       `Model returned no parsable output (stop_reason: ${message.stop_reason}).`,
@@ -191,13 +193,14 @@ export function describeError(err: unknown): { status: number; type: string; mes
     return { status: 502, type: "connection_error", message: "Could not reach the Anthropic API." };
   }
   if (err instanceof Anthropic.APIError) {
-    // err.message is "<status> <raw JSON body>"; prefer the API's own message when the body has one.
+    // err.message is "<status> <raw JSON body>"; prefer the API's own message when the body has one,
+    // without the request path it puts in front of validation errors ("messages.0.content.0...: ").
     const body = err.error as { error?: { message?: unknown } } | undefined;
     const apiMessage = body?.error?.message;
     return {
       status: err.status ?? 500,
       type: err.type ?? "api_error",
-      message: typeof apiMessage === "string" ? apiMessage : err.message,
+      message: typeof apiMessage === "string" ? apiMessage.replace(/^messages(\.\w+)+: /, "") : err.message,
     };
   }
   // Anything else, including Supabase errors, which are not always Error instances.

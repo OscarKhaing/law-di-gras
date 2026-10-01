@@ -5,3 +5,12 @@ export async function fetchJson<T>(input: string, init?: RequestInit): Promise<T
   if (!res.ok) throw new Error(body?.error?.message ?? `Request failed (${res.status})`);
   return body as T;
 }
+
+/** POST a JSON body to one of our API routes. */
+export function postJson<T>(input: string, body: unknown): Promise<T> {
+  return fetchJson<T>(input, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}

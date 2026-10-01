@@ -1,22 +1,20 @@
-import { extractDocument } from "@/features/documents/server";
-import { badRequest, errorResponse } from "@/server/http";
-import { fileFromUpload } from "@/server/llm";
+import { z } from "zod";
+import { extractDocument, loadDocument } from "@/features/documents/server";
+import { errorResponse, parseJson } from "@/server/http";
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
-// multipart/form-data: `file` (PDF, image or text) and optional `instructions`.
+// A path returned by /api/documents/upload-url.
+const Body = z.object({
+  path: z.string().regex(/^uploads\/[\w-]+\/[\w.-]+$/, "Not an upload path."),
+});
+
+// Step 2 of an upload: extract structured facts from a document already in Storage.
 export async function POST(request: Request) {
-  const form = await request.formData().catch(() => null);
-  const file = form?.get("file");
-  if (!(file instanceof File)) return badRequest("Send multipart/form-data with a `file` field.");
-
-  const instructions = form?.get("instructions");
+  const body = await parseJson(request, Body);
+  if ("response" in body) return body.response;
   try {
-    const result = await extractDocument(
-      await fileFromUpload(file),
-      typeof instructions === "string" ? instructions : undefined,
-    );
-    return Response.json({ fileName: file.name, ...result });
+    return Response.json(await extractDocument(await loadDocument(body.data.path)));
   } catch (err) {
     return errorResponse(err);
   }

@@ -12,7 +12,7 @@ import { CASES } from "@/features/cases/data";
 
 export default function CasesPage() {
   return (
-    <div className="space-y-4">
+    <div className="mx-auto max-w-5xl space-y-4">
       <h1 className="text-xl font-semibold">Cases</h1>
       <div className="rounded-lg border">
         <Table>

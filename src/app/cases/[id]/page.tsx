@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { DocumentExtractor } from "@/features/documents/document-extractor";
+import { DocumentReview } from "@/features/documents/document-review";
 import { StatusBadge } from "@/features/cases/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { CASES } from "@/features/cases/data";
@@ -25,7 +25,7 @@ export default async function CasePage({ params }: PageProps<"/cases/[id]">) {
           {c.matter} · last updated {c.updatedAt}
         </p>
       </div>
-      <DocumentExtractor />
+      <DocumentReview />
     </div>
   );
 }

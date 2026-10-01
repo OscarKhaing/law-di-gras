@@ -2,7 +2,7 @@ import { z } from "zod";
 import { errorResponse, parseJson } from "@/server/http";
 import { streamText } from "@/server/llm";
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 const Body = z.object({
   prompt: z.string().min(1),

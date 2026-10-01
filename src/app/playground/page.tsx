@@ -2,17 +2,17 @@
 
 import { useState } from "react";
 import { ActivityIcon, DatabaseIcon } from "lucide-react";
-import { DocumentExtractor } from "@/features/documents/document-extractor";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { fetchJson } from "@/lib/fetch-json";
+import { fetchJson, postJson } from "@/lib/fetch-json";
 
 type Health = { ok: true; reply: string; model: string; latencyMs: number };
 
 const message = (err: unknown) => (err instanceof Error ? err.message : "Request failed");
 
-// Exercises each API route from the browser. Useful as a smoke test after every deploy.
+// Exercises the model and database routes from the browser. Useful as a smoke test after every deploy.
+// Document upload and review are on the case page.
 export default function PlaygroundPage() {
   const [health, setHealth] = useState<{ text: string; ok: boolean } | null>(null);
   const [db, setDb] = useState<{ text: string; ok: boolean } | null>(null);
@@ -46,11 +46,7 @@ export default function PlaygroundPage() {
     setBusy(true);
     setOutput("");
     try {
-      const result = await fetchJson<{ text: string }>("/api/llm/complete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
-      });
+      const result = await postJson<{ text: string }>("/api/llm/complete", { prompt });
       setOutput(result.text);
     } catch (err) {
       setOutput(message(err));
@@ -88,7 +84,7 @@ export default function PlaygroundPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="mx-auto max-w-5xl space-y-4">
       <h1 className="text-xl font-semibold">LLM playground</h1>
 
       <Card>
@@ -138,8 +134,6 @@ export default function PlaygroundPage() {
           )}
         </CardContent>
       </Card>
-
-      <DocumentExtractor />
     </div>
   );
 }
