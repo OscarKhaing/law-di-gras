@@ -7,6 +7,34 @@ problem from a personal injury (PI) law firm, announced at kickoff. Coding time 
 1:00–4:00, so optimise for a working, convincing demo over architecture. No auth, no tests, no
 abstractions that aren't needed today.
 
+## Hard rule: self-check before adding anything
+
+**Project direction:** _not set yet. At kickoff, replace this with one sentence naming the workflow
+the demo will show end to end._
+
+Before adding a feature, dependency, abstraction, guard, config option or extra endpoint, stop and
+answer these four questions:
+
+1. **Direction** — does it move the demo's one end-to-end workflow forward, or is it beside it?
+2. **Request** — was it asked for? If not, would its absence break the demo or mislead a judge?
+3. **Cost** — what does it add: a dependency, a new concept to explain, another way for the demo to
+   fail, time that could go to the core workflow?
+4. **Simpler option** — can existing code, a convention in this file, or doing nothing cover it?
+
+Then decide:
+
+- Build it only if it serves the direction (1) and its cost (3) is small next to what it buys.
+- Otherwise do not build it. Tell the user in one line what you left out and why, and let them opt in.
+- When unsure, don't build.
+
+Say the outcome in one line before implementing, e.g. "Self-check: needed for the demo path, no new
+dependency, building it." This applies to work the user asked for as well: if a requested feature
+fails the check, say so before starting rather than building it silently.
+
+Two things already failed this check and were removed: a site-wide password gate (redundant once the
+API spend cap was set) and a `server-only` import guard (a dependency and a script flag to enforce
+what the folder layout already shows).
+
 ## Commands
 
 - `pnpm dev` — app on http://localhost:3000
@@ -53,6 +81,8 @@ Existing features: `documents` (upload → extract → human review) and `cases`
 | Sidebar navigation | `src/components/app-sidebar.tsx` |
 
 ## Adding a feature
+
+Run the self-check above first. Then:
 
 1. `src/features/<name>/schema.ts` — Zod schema for the model's output.
 2. `src/features/<name>/prompt.ts` — the prompts.
