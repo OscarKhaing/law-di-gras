@@ -6,7 +6,7 @@ import type { z } from "zod";
 // Haiku 4.5 by default so demo calls return quickly; set LLM_MODEL to override.
 export const MODEL = process.env.LLM_MODEL ?? "claude-haiku-4-5";
 
-export class LlmError extends Error {
+class LlmError extends Error {
   constructor(
     message: string,
     readonly status = 500,

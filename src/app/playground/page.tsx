@@ -5,7 +5,7 @@ import { ActivityIcon, DatabaseIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { fetchJson, postJson } from "@/lib/fetch-json";
+import { fetchJson } from "@/lib/fetch-json";
 
 type Health = { ok: true; reply: string; model: string; latencyMs: number };
 
@@ -39,19 +39,6 @@ export default function PlaygroundPage() {
       setDb({ text: `Supabase connected, ${result.buckets.length} storage buckets`, ok: true });
     } catch (err) {
       setDb({ text: message(err), ok: false });
-    }
-  }
-
-  async function complete() {
-    setBusy(true);
-    setOutput("");
-    try {
-      const result = await postJson<{ text: string }>("/api/llm/complete", { prompt });
-      setOutput(result.text);
-    } catch (err) {
-      setOutput(message(err));
-    } finally {
-      setBusy(false);
     }
   }
 
@@ -115,18 +102,13 @@ export default function PlaygroundPage() {
       <Card>
         <CardHeader>
           <CardTitle>Prompt</CardTitle>
-          <CardDescription>Full response via /api/llm/complete or chunks via /api/llm/stream.</CardDescription>
+          <CardDescription>Streams the reply as it is written, through /api/llm/stream.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <Textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} rows={3} />
-          <div className="flex gap-2">
-            <Button onClick={complete} disabled={busy || !prompt.trim()}>
-              Complete
-            </Button>
-            <Button variant="outline" onClick={stream} disabled={busy || !prompt.trim()}>
-              Stream
-            </Button>
-          </div>
+          <Button onClick={stream} disabled={busy || !prompt.trim()}>
+            Send
+          </Button>
           {output && (
             <pre className="rounded-md border bg-muted/40 p-3 font-sans text-sm whitespace-pre-wrap">
               {output}

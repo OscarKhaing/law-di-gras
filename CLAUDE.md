@@ -7,6 +7,23 @@ problem from a personal injury (PI) law firm, announced at kickoff. Coding time 
 1:00–4:00, so optimise for a working, convincing demo over architecture. No auth, no tests, no
 abstractions that aren't needed today.
 
+## At kickoff
+
+1. Put the hosts' brief and sample files in `challenge/`. That folder is git-ignored; keep the files
+   out of `public/`, which anyone can read, unless the hosts say they are safe to publish.
+2. Read everything in `challenge/` and answer, before writing code:
+   - Who does this work today, and which step is slow or error-prone?
+   - Which one workflow will the demo show end to end, and on which sample documents?
+   - What must be extracted or decided, what does a person review, and what happens after approval?
+   - Does anything need to be saved? If so, which tables (see "Database" below)?
+   - What requirement did the brief leave unwritten (source links, audit trail, privacy)?
+3. Write the workflow as one sentence in "Project direction" below.
+4. Build in this order, checking each step on the real samples before the next:
+   1. Change `FIELDS` and the prompt, and run `pnpm -s script scripts/extract-file.ts challenge/<file>`
+      until the output is right. This loop needs no browser.
+   2. Adapt the review screen's wording, then whatever happens after Approve.
+   3. Precompute the demo cases (see "The documents feature") so the demo never waits on the model.
+
 ## Hard rule: self-check before adding anything
 
 **Project direction:** _not set yet. At kickoff, replace this with one sentence naming the workflow
@@ -35,21 +52,62 @@ Two things already failed this check and were removed: a site-wide password gate
 API spend cap was set) and a `server-only` import guard (a dependency and a script flag to enforce
 what the folder layout already shows).
 
+## Current state (evening of 2026-10-01)
+
+What exists and works, locally and on production:
+
+- An app shell: sidebar, a case list on placeholder rows, a case page, and a playground page that
+  checks the model and database connections.
+- One feature, `documents`: upload a PDF, image or text file, extract a list of fields from it, and
+  review them next to the source. Details in "The documents feature".
+- A model wrapper that passes its checks on Haiku 4.5, Sonnet 5.5 and Opus 5.5.
+
+What does not exist: database tables, saving of anything (Approve changes only the screen), auth,
+splitting of long documents, and any connection between a case and its documents.
+
+Services:
+
+- **Vercel** — production is https://law-di-gras.vercel.app, redeployed on every push to `main`.
+  Hobby plan; functions may run 300 seconds. `ANTHROPIC_API_KEY`, `SUPABASE_URL` and
+  `SUPABASE_SECRET_KEY` are set there. A changed environment variable needs a redeploy.
+- **Anthropic** — a spend cap is set in the Console. When it is reached, every call fails with "You
+  have reached your specified API usage limits".
+- **Supabase** — see "Database".
+
+Local setup needs the same three variables in `.env.local` (see `.env.example`).
+
+## Database
+
+- Supabase project `ocqpdippafieojisieln`, at https://ocqpdippafieojisieln.supabase.co.
+- It has no tables. It has one private Storage bucket, `documents`, for uploaded files.
+- Server code reaches it through `supabase()` in `src/server/supabase.ts`, which uses the secret key
+  and so bypasses row-level security. Never use it in browser code.
+- To add tables: write the SQL, and have the user run it in the SQL editor at
+  https://supabase.com/dashboard/project/ocqpdippafieojisieln/sql/new. This machine cannot run SQL
+  itself: `psql` is not installed, the Supabase CLI is not logged in, and the direct database host is
+  IPv6-only. Keep the SQL in `supabase/schema.sql` so the schema is on record.
+- Prefer a few tables with a `jsonb` column for challenge-specific data over a detailed schema.
+- A random 401 with code `PGRST303` on table queries is a reported Supabase issue with `sb_secret_`
+  keys. It has not been seen here; if it appears, retry the query once.
+
 ## Commands
 
 - `pnpm dev` — app on http://localhost:3000
-- `pnpm check-llm` — runs every LLM path against the real API (needs `ANTHROPIC_API_KEY` in `.env.local`)
-- `pnpm script scripts/<file>.ts` — run a script with `.env.local` loaded
+- `pnpm check-llm` — runs every model path against the real API
+- `pnpm -s script scripts/extract-file.ts <file>` — extract a local file and print the JSON
+- `pnpm -s script scripts/<file>.ts` — run any script with `.env.local` loaded
 - `pnpm typecheck` / `pnpm lint` / `pnpm build`
-- `pnpm dlx shadcn@latest add <component>` — add UI components
+- `pnpm dlx shadcn@latest add <component>` — add a UI component
 
 ## Where things live
 
 ```
 src/
   app/                  Routing only. Pages and API routes; no logic of their own.
+    page.tsx            Case list.          cases/[id]/page.tsx   Case page with document review.
+    playground/         Connection checks and a streaming prompt box.
     api/<feature>/<action>/route.ts
-    api/llm/            Generic prompt endpoints (complete, stream) used by the playground.
+    api/llm/stream/     Generic streaming prompt endpoint, used by the playground.
     api/health/         Smoke tests: model (/api/health) and Supabase (/api/health/db).
   features/<name>/      One folder per product feature. Everything about the feature is here.
     schema.ts           What gets extracted, as a Zod schema and inferred types. Browser-safe.
@@ -59,17 +117,16 @@ src/
   server/               Server-only infrastructure shared by features.
     llm.ts              The only file that talks to Claude: complete, extract, streamText, ping.
     supabase.ts         Supabase client (Postgres + Storage).
-    http.ts             Route helpers: parseJson, badRequest, errorResponse.
+    http.ts             Route helpers: parseJson, errorResponse.
   components/           UI shared across features (app-sidebar). `ui/` is shadcn-generated.
-  lib/                  Browser-safe helpers only (fetchJson, cn).
-scripts/                check-llm (real-API checks), extract-file (extract a local file, no time
-                        limit), create-bucket (one-time Storage setup).
-fixtures/               Synthetic test documents.
+  lib/                  Browser-safe helpers only (fetchJson, postJson, cn).
+scripts/                check-llm, extract-file, create-bucket (one-time Storage setup).
 public/demo/            A sample record and its precomputed extraction, opened by "Open sample".
+challenge/              The hosts' brief and sample files (git-ignored; create it at kickoff).
 ```
 
-Existing features: `documents` (upload → extract → review next to the source; see below) and `cases`
-(placeholder list in `data.ts`; replace with real queries in a `server.ts`).
+Features: `documents` (below) and `cases` (placeholder rows in `data.ts`; replace with real queries
+in a `server.ts`).
 
 | To change… | Open |
 |---|---|
@@ -81,6 +138,45 @@ Existing features: `documents` (upload → extract → review next to the source
 | Model choice, token limits, file handling | `src/server/llm.ts` |
 | Database or file storage access | `src/server/supabase.ts`, then the feature's `server.ts` |
 | Sidebar navigation | `src/components/app-sidebar.tsx` |
+
+## The documents feature
+
+- Flow: the browser asks `/api/documents/upload-url` for a signed URL, PUTs the file straight to the
+  Storage bucket, then posts the returned path to `/api/documents/extract`, which reads the file back
+  and calls the model. Nothing but the path passes through our API.
+- What to extract is the `FIELDS` list in `schema.ts`. The model returns one entry per field (several
+  for a `list` field), each with a value, a supporting quote, the page and an optional concern.
+  `tidy` in `server.ts` puts them in `FIELDS` order and adds a blank entry for anything not found.
+- The review screen (`document-review.tsx`, `review-panel.tsx`, `source-viewer.tsx`) shows the source
+  beside the fields. A page link jumps the PDF and highlights the quote; a quote that is not in the
+  document shows no highlight, which is the reviewer's cue. This relies on desktop Chrome's built-in
+  PDF viewer and on the PDF having a text layer.
+- A field needs review when the model raised a concern or gave no quote (`needsReview`). There is no
+  confidence score: the model's own percentage would not be a measured number.
+- Approve is blocked until flagged fields are checked or edited. Nothing is saved.
+- To show a document without waiting for the model, extract it ahead of time with
+  `pnpm -s script scripts/extract-file.ts <file> > public/demo/<name>.json`, put the file in
+  `public/demo/`, and load the pair the way `openSample` does in `document-review.tsx`.
+
+Measured on synthetic, text-only pages (real scans cost more tokens per page):
+
+| Document | Model | Input tokens | Time |
+|---|---|---|---|
+| 12 pages | claude-haiku-4-5 | 22,000 | about 20 s |
+| 12 pages | claude-sonnet-5-5 | 23,500 | about 30 s |
+| 12 pages | claude-opus-5-5 | not recorded | about 40 s |
+| 120 pages | claude-sonnet-5-5 | 218,000 | 59 s |
+
+Limits that follow:
+
+- Haiku takes at most 100 PDF pages and 200,000 tokens per request; above that the API answers "A
+  maximum of 100 PDF pages may be provided." Use a larger model for longer documents.
+- The larger models take 600 pages and 1,000,000 tokens. At roughly 1,800 tokens per page or more,
+  expect a ceiling of a few hundred pages. A longer record must be split into page ranges first, and
+  page numbers then need the range's offset added. Nothing here does that yet.
+- A file can be at most 23 MB, because the model accepts 32 MB per request and files are sent
+  base64-encoded. Larger files would need the Files API.
+- The extract route stops the model call after 270 seconds. `scripts/extract-file.ts` has no limit.
 
 ## Adding a feature
 
@@ -94,7 +190,9 @@ Run the self-check above first. Then:
 6. Add the component to a page in `src/app/`, and a nav entry if it gets its own page.
 7. Add a check to `scripts/check-llm.ts` so the model path can be verified without the browser.
 
-`src/features/documents/` is the worked example of all seven steps.
+`src/features/documents/` is the worked example of all seven steps. For text that should appear as it
+is written (a draft letter, a summary), `streamText` with `src/app/api/llm/stream/route.ts` and the
+reader loop in `src/app/playground/page.tsx` is the worked example.
 
 ## Structure rules
 
@@ -112,6 +210,9 @@ Run the self-check above first. Then:
   `@/server`, `@/lib` and `@/components`; if two features need the same code, move it up into one of
   those rather than importing across features.
 - Secrets are read from `process.env` only inside `src/server/`.
+- Any path or id that comes from a request and is passed to Supabase must be validated first, as
+  `isDocumentPath` does. The Storage client builds its URL from the path as given, so `../` would
+  reach other buckets and APIs with the secret key.
 - After moving or deleting a route, delete the `.next` folder if `pnpm typecheck` or `pnpm build`
   complains about a missing module in `.next/**/validator.ts`.
 
@@ -138,61 +239,28 @@ Run the self-check above first. Then:
 - Every API error has the shape `{ error: { type, message } }`. In the browser, `fetchJson` and
   `postJson` from `src/lib/fetch-json.ts` throw an Error carrying that message.
 
-## The documents feature
-
-- Flow: the browser asks `/api/documents/upload-url` for a signed URL, PUTs the file straight to the
-  private Storage bucket `documents`, then posts the returned path to `/api/documents/extract`, which
-  reads the file back and calls the model. Nothing but the path passes through our API.
-- What to extract is the `FIELDS` list in `schema.ts`. The model returns one entry per field (several
-  for a `list` field), each with a value, a supporting quote, the page and an optional concern.
-  `tidy` in `server.ts` puts them in `FIELDS` order and adds a blank entry for anything not found.
-- The review screen shows the source beside the fields. A page link jumps the PDF and highlights
-  the quote; a quote that is not in the document shows no highlight, which is the reviewer's cue.
-  This relies on desktop Chrome's built-in PDF viewer.
-- A field needs review when the model raised a concern or gave no quote (`needsReview`). There is no
-  confidence score: the model's own percentage would not be a measured number.
-- Approve is blocked until flagged fields are checked or edited. Nothing is saved: there are no
-  database tables yet.
-- To show a document without waiting for the model, extract it ahead of time with
-  `pnpm -s script scripts/extract-file.ts <file> > public/demo/<name>.json`, put the file in
-  `public/demo/`, and load the pair the way `openSample` does in `document-review.tsx`.
-
-Measured on synthetic, text-only pages (real scans cost more tokens per page):
-
-| Document | Model | Input tokens | Time |
-|---|---|---|---|
-| 12 pages | claude-haiku-4-5 | 22,000 | about 20 s |
-| 12 pages | claude-sonnet-5-5 | 23,500 | about 30 s |
-| 12 pages | claude-opus-5-5 | not recorded | about 40 s |
-| 120 pages | claude-sonnet-5-5 | 218,000 | 59 s |
-
-Limits that follow from this:
-
-- Haiku takes at most 100 PDF pages and 200,000 tokens per request; above that the API answers "A
-  maximum of 100 PDF pages may be provided." Use a larger model for longer documents.
-- The larger models take 600 pages and 1,000,000 tokens. At roughly 1,800 tokens per page or more,
-  expect a ceiling of a few hundred pages. A longer record must be split into page ranges first, and
-  page numbers then need the range's offset added.
-- A file can be at most 23 MB, because the model accepts 32 MB per request and files are sent
-  base64-encoded. Larger files would need the Files API.
-- The extract route stops the model call after 270 seconds. `scripts/extract-file.ts` has no limit.
-
 ## UI conventions
 
 - shadcn here is built on Base UI, not Radix: there is no `asChild`. Compose with the `render` prop,
   e.g. `<SidebarMenuButton render={<Link href="/" />}>`.
 - Import `cn` from `@/lib/utils`.
 - Dynamic route `params` is a Promise in this Next.js version: `const { id } = await params`.
+- Creating an object URL or other state inside `useEffect` fails this repo's lint; do it in the event
+  handler, as `choose` does in `document-review.tsx`.
+- To see a page instead of guessing: install `puppeteer-core` in the scratchpad (not in this repo),
+  launch the installed Chrome at `/Applications/Google Chrome.app` headless, and take a screenshot.
+  Headless Chrome renders the PDF viewer, so the review screen can be checked this way too.
 
 ## Deployment
 
-- Production is https://law-di-gras.vercel.app and redeploys on every push to `main`.
 - Vercel rejects request and response bodies over 4.5 MB, so files never go through an API route:
-  they are uploaded from the browser to Supabase Storage and read server-side (the documents feature).
+  they are uploaded from the browser to Supabase Storage and read server-side.
 - Model routes set `maxDuration = 300`, the most the plan allows. Streaming a response does not
   extend it. A request that runs past it gets a bare 504 from Vercel, shown as "Request failed (504)".
-- The Storage bucket `documents` is private and created by `scripts/create-bucket.ts`. Uploaded
-  files are never deleted automatically; empty the bucket by hand when needed.
+- The Storage bucket is created by `scripts/create-bucket.ts`. Uploaded files are never deleted
+  automatically; empty the bucket by hand when needed.
+- After a push, wait for the deployment to finish before testing production:
+  `gh api "repos/OscarKhaing/law-di-gras/deployments?sha=$(git rev-parse HEAD)"` lists it.
 
 ## What a good demo needs
 

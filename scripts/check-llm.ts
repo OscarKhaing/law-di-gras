@@ -1,6 +1,6 @@
 // End-to-end check of the LLM layer against the real API: `pnpm check-llm`.
 // Exercises every path the app uses: plain completion, streaming, structured output, and document
-// extraction from PDFs (including page references).
+// extraction from a PDF (including page references).
 import { readFile } from "node:fs/promises";
 import { z } from "zod";
 import { needsReview } from "../src/features/documents/schema";
@@ -57,33 +57,22 @@ const checks: [name: string, run: () => Promise<string>][] = [
     },
   ],
   [
-    "pdf extraction",
+    "document extraction",
     async () => {
-      const { fields } = await extractPdf("fixtures/sample-collision-report.pdf");
+      const name = "public/demo/sample-medical-record.pdf";
+      const bytes = await readFile(name);
+      const { fields } = (await extractDocument({ name, mediaType: "application/pdf", bytes })).data;
       const value = (label: string) => fields.find((field) => field.label === label)?.value ?? "";
       if (!value("Client").includes("Riley Sample")) throw new Error(`wrong client: ${value("Client")}`);
       if (value("Date of incident") !== "2026-03-14") throw new Error(`wrong date: ${value("Date of incident")}`);
-      return `${fields.filter((field) => field.value).length} of ${fields.length} fields found`;
-    },
-  ],
-  [
-    // The MRI is on page 7 of the file, which is stamped RS-000107: the page must be the position
-    // in the file, because that is what the review screen jumps to.
-    "page references",
-    async () => {
-      const { fields } = await extractPdf("public/demo/sample-medical-record.pdf");
+      // The MRI is on page 7 of the file, which is stamped RS-000107: the page must be the position
+      // in the file, because that is what the review screen jumps to.
       const mri = fields.find((field) => field.label === "Treatment" && /MRI/i.test(field.value));
       if (mri?.page !== 7) throw new Error(`expected the MRI on page 7, got ${JSON.stringify(mri)}`);
       return `${fields.length} fields, ${fields.filter(needsReview).length} flagged for review`;
     },
   ],
 ];
-
-async function extractPdf(path: string) {
-  const bytes = await readFile(path);
-  const { data } = await extractDocument({ name: path, mediaType: "application/pdf", bytes });
-  return data;
-}
 
 async function main() {
   console.log(`Model: ${MODEL}\n`);

@@ -8,7 +8,7 @@ API, and Supabase.
 ```bash
 pnpm install
 cp .env.example .env.local   # add ANTHROPIC_API_KEY, SUPABASE_URL and SUPABASE_SECRET_KEY
-pnpm check-llm               # all six checks should pass
+pnpm check-llm               # all five checks should pass
 pnpm dev                     # http://localhost:3000
 ```
 
@@ -19,7 +19,7 @@ Open a case from the list to review a document: choose a PDF, image or text file
 click **Open sample** to see a 12-page synthetic medical record that was extracted ahead of time. The
 review screen needs desktop Chrome, whose PDF viewer does the page jumps and quote highlighting.
 
-`/playground` checks the model and database connections and runs a prompt, with and without streaming.
+`/playground` checks the model and database connections and has a streaming prompt box.
 
 ## API routes
 
@@ -27,7 +27,6 @@ review screen needs desktop Chrome, whose PDF viewer does the page jumps and quo
 |---|---|---|
 | `GET /api/health` | — | `{ ok, model, latencyMs }` after a real model call |
 | `GET /api/health/db` | — | `{ ok, buckets }` after a real Supabase call |
-| `POST /api/llm/complete` | JSON `{ prompt, system? }` | `{ text, model, usage }` |
 | `POST /api/llm/stream` | JSON `{ prompt, system? }` | plain-text stream |
 | `POST /api/documents/upload-url` | JSON `{ fileName }` | `{ path, uploadUrl }`; PUT the file to `uploadUrl` |
 | `POST /api/documents/extract` | JSON `{ path }` | `{ data, model, usage }`, the fields found in the document |

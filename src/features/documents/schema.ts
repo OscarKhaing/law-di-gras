@@ -3,7 +3,7 @@ import { z } from "zod";
 // What gets extracted from a document. FIELDS is the main thing to change for a new use case:
 // the prompt, the model's output format and the review screen all follow this list.
 
-export type FieldSpec = {
+type FieldSpec = {
   label: string;
   description: string;
   /** True when a document can hold several of these; the model returns one entry per item. */

@@ -9,6 +9,8 @@
       "Bash(pnpm typecheck:*)",
       "Bash(pnpm check-llm:*)",
       "Bash(pnpm script:*)",
+      "Bash(pnpm -s check-llm:*)",
+      "Bash(pnpm -s script:*)",
       "Bash(pnpm dlx shadcn@latest add:*)",
       "Bash(git status:*)",
       "Bash(git diff:*)",
