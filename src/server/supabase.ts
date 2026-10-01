@@ -1,8 +1,9 @@
+import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 let client: SupabaseClient | undefined;
 
-/** Server-side Supabase client (Postgres + Storage). Use from route handlers only. */
+/** Supabase client (Postgres + Storage) using the secret key, which bypasses row-level security. */
 export function supabase() {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SECRET_KEY;

@@ -1,3 +1,4 @@
+import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import type { z } from "zod";
@@ -17,6 +18,15 @@ export class LlmError extends Error {
 }
 
 export type LlmFile = { name: string; mediaType: string; bytes: Buffer };
+
+/** Convert a browser upload (a `File` from `request.formData()`) into an `LlmFile`. */
+export async function fileFromUpload(file: File): Promise<LlmFile> {
+  return {
+    name: file.name,
+    mediaType: file.type || "text/plain",
+    bytes: Buffer.from(await file.arrayBuffer()),
+  };
+}
 
 export type LlmRequest = {
   prompt: string;
@@ -191,15 +201,11 @@ export function describeError(err: unknown): { status: number; type: string; mes
       message: typeof apiMessage === "string" ? apiMessage : err.message,
     };
   }
+  // Anything else, including Supabase errors, which are not always Error instances.
+  const message = (err as { message?: unknown } | null)?.message;
   return {
     status: 500,
     type: "internal_error",
-    message: err instanceof Error ? err.message : String(err),
+    message: typeof message === "string" ? message : String(err),
   };
-}
-
-export function errorResponse(err: unknown): Response {
-  const { status, type, message } = describeError(err);
-  console.error(`[llm] ${type}: ${message}`);
-  return Response.json({ error: { type, message } }, { status });
 }

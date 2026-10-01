@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { StatusBadge } from "@/components/status-badge";
+import { StatusBadge } from "@/features/cases/status-badge";
 import {
   Table,
   TableBody,
@@ -8,7 +8,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { CASES } from "@/lib/mock-data";
+import { CASES } from "@/features/cases/data";
 
 export default function CasesPage() {
   return (

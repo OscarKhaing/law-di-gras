@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { DocumentExtractor } from "@/components/document-extractor";
-import { StatusBadge } from "@/components/status-badge";
+import { DocumentExtractor } from "@/features/documents/document-extractor";
+import { StatusBadge } from "@/features/cases/status-badge";
 import { Badge } from "@/components/ui/badge";
-import { CASES } from "@/lib/mock-data";
+import { CASES } from "@/features/cases/data";
 
 export default async function CasePage({ params }: PageProps<"/cases/[id]">) {
   const { id } = await params;

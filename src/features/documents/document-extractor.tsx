@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchJson } from "@/lib/fetch-json";
-import type { DocumentSummary } from "@/lib/schemas";
+import type { DocumentSummary } from "./schema";
 
 type Extraction = { fileName: string; data: DocumentSummary; model: string };
 type Review = "pending" | "approved" | "rejected";
@@ -37,7 +37,7 @@ export function DocumentExtractor() {
     try {
       const form = new FormData();
       form.append("file", file);
-      setResult(await fetchJson<Extraction>("/api/llm/extract", { method: "POST", body: form }));
+      setResult(await fetchJson<Extraction>("/api/documents/extract", { method: "POST", body: form }));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Extraction failed");
     } finally {

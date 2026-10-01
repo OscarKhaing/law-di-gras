@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { parseJson } from "@/lib/api";
-import { errorResponse, streamText } from "@/lib/llm";
+import { errorResponse, parseJson } from "@/server/http";
+import { streamText } from "@/server/llm";
 
 export const maxDuration = 60;
 

@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import type { CaseStatus } from "@/lib/mock-data";
+import type { CaseStatus } from "./data";
 
 const STATUS: Record<CaseStatus, { label: string; variant: "secondary" | "outline" | "destructive" }> = {
   on_track: { label: "On track", variant: "secondary" },

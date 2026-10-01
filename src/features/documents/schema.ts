@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-// Example extraction schema. Replace or add schemas here once the challenge is known;
-// `extract(schema, ...)` in lib/llm.ts returns data typed from whichever schema you pass.
+// What the model returns for one document. The same type flows to the API response and the UI,
+// so changing a field here is the only edit needed to change what gets extracted.
 export const DocumentSummary = z.object({
   documentType: z
     .string()

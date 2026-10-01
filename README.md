@@ -23,8 +23,13 @@ browser. `fixtures/sample-collision-report.pdf` is a synthetic document to uploa
 | `GET /api/health/db` | — | `{ ok, buckets }` after a real Supabase call |
 | `POST /api/llm/complete` | JSON `{ prompt, system? }` | `{ text, model, usage }` |
 | `POST /api/llm/stream` | JSON `{ prompt, system? }` | plain-text stream |
-| `POST /api/llm/extract` | form-data `file`, `instructions?` | `{ data }` matching `DocumentSummary` |
+| `POST /api/documents/extract` | form-data `file`, `instructions?` | `{ data }` matching `DocumentSummary` |
 
 Errors come back as `{ error: { type, message } }`.
 
-Conventions and deployment limits are in [CLAUDE.md](CLAUDE.md).
+## Structure
+
+Each product feature lives in `src/features/<name>/` (`schema.ts`, `prompt.ts`, `server.ts`, UI
+components). `src/app/` only routes to them, `src/server/` holds the shared Claude and Supabase clients,
+and `src/lib/` holds browser-safe helpers. The full map, the steps for adding a feature, and the rules
+are in [CLAUDE.md](CLAUDE.md).

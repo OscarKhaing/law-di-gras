@@ -2,8 +2,8 @@
 // Exercises every path the app uses: plain completion, streaming, structured output, PDF input.
 import { readFile } from "node:fs/promises";
 import { z } from "zod";
-import { complete, describeError, extract, MODEL, ping, streamText } from "../src/lib/llm";
-import { DocumentSummary } from "../src/lib/schemas";
+import { extractDocument } from "../src/features/documents/server";
+import { complete, describeError, extract, MODEL, ping, streamText } from "../src/server/llm";
 
 const checks: [name: string, run: () => Promise<string>][] = [
   [
@@ -58,9 +58,10 @@ const checks: [name: string, run: () => Promise<string>][] = [
     "pdf extraction",
     async () => {
       const bytes = await readFile("fixtures/sample-collision-report.pdf");
-      const { data } = await extract(DocumentSummary, {
-        prompt: "Extract the key facts from this document.",
-        files: [{ name: "sample-collision-report.pdf", mediaType: "application/pdf", bytes }],
+      const { data } = await extractDocument({
+        name: "sample-collision-report.pdf",
+        mediaType: "application/pdf",
+        bytes,
       });
       const total = data.amounts.reduce((sum, amount) => sum + amount.amountUsd, 0);
       if (total !== 10425) throw new Error(`expected amounts totalling 10425, got ${total}`);

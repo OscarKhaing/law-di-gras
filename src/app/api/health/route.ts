@@ -1,4 +1,5 @@
-import { errorResponse, ping } from "@/lib/llm";
+import { errorResponse } from "@/server/http";
+import { ping } from "@/server/llm";
 
 export const maxDuration = 60;
 

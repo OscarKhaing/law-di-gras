@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ActivityIcon, DatabaseIcon } from "lucide-react";
-import { DocumentExtractor } from "@/components/document-extractor";
+import { DocumentExtractor } from "@/features/documents/document-extractor";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
