@@ -1,36 +1,29 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Case Desk
 
-## Getting Started
+Starter app for the Swans Applied AI Hackathon at Law-Di-Gras: Next.js, Tailwind, shadcn/ui, the Claude
+API, and Supabase.
 
-First, run the development server:
+## Setup
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
+cp .env.example .env.local   # then add ANTHROPIC_API_KEY
+pnpm check-llm               # all five checks should pass
+pnpm dev                     # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `/playground` to test the model connection, a prompt, streaming, and document extraction from the
+browser. `fixtures/sample-collision-report.pdf` is a synthetic document to upload.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## API routes
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Route | Body | Returns |
+|---|---|---|
+| `GET /api/health` | — | `{ ok, model, latencyMs }` after a real model call |
+| `POST /api/llm/complete` | JSON `{ prompt, system? }` | `{ text, model, usage }` |
+| `POST /api/llm/stream` | JSON `{ prompt, system? }` | plain-text stream |
+| `POST /api/llm/extract` | form-data `file`, `instructions?` | `{ data }` matching `DocumentSummary` |
 
-## Learn More
+Errors come back as `{ error: { type, message } }`.
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Conventions and deployment limits are in [CLAUDE.md](CLAUDE.md).
