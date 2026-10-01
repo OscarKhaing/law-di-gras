@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ActivityIcon } from "lucide-react";
+import { ActivityIcon, DatabaseIcon } from "lucide-react";
 import { DocumentExtractor } from "@/components/document-extractor";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +15,7 @@ const message = (err: unknown) => (err instanceof Error ? err.message : "Request
 // Exercises each API route from the browser. Useful as a smoke test after every deploy.
 export default function PlaygroundPage() {
   const [health, setHealth] = useState<{ text: string; ok: boolean } | null>(null);
+  const [db, setDb] = useState<{ text: string; ok: boolean } | null>(null);
   const [prompt, setPrompt] = useState(
     "In two sentences, what slows down a personal injury case between intake and demand?",
   );
@@ -28,6 +29,16 @@ export default function PlaygroundPage() {
       setHealth({ text: `Connected to ${result.model} in ${result.latencyMs} ms`, ok: true });
     } catch (err) {
       setHealth({ text: message(err), ok: false });
+    }
+  }
+
+  async function checkDb() {
+    setDb({ text: "Checking…", ok: true });
+    try {
+      const result = await fetchJson<{ buckets: string[] }>("/api/health/db");
+      setDb({ text: `Supabase connected, ${result.buckets.length} storage buckets`, ok: true });
+    } catch (err) {
+      setDb({ text: message(err), ok: false });
     }
   }
 
@@ -83,14 +94,25 @@ export default function PlaygroundPage() {
       <Card>
         <CardHeader>
           <CardTitle>Connection</CardTitle>
-          <CardDescription>Makes one small model call through /api/health.</CardDescription>
+          <CardDescription>
+            One small model call through /api/health and one Supabase call through /api/health/db.
+          </CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-wrap items-center gap-3 text-sm">
-          <Button variant="outline" onClick={checkHealth}>
-            <ActivityIcon />
-            Check connection
-          </Button>
-          {health && <span className={health.ok ? "" : "text-destructive"}>{health.text}</span>}
+        <CardContent className="space-y-2 text-sm">
+          <div className="flex flex-wrap items-center gap-3">
+            <Button variant="outline" onClick={checkHealth}>
+              <ActivityIcon />
+              Check model
+            </Button>
+            {health && <span className={health.ok ? "" : "text-destructive"}>{health.text}</span>}
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button variant="outline" onClick={checkDb}>
+              <DatabaseIcon />
+              Check database
+            </Button>
+            {db && <span className={db.ok ? "" : "text-destructive"}>{db.text}</span>}
+          </div>
         </CardContent>
       </Card>
 

@@ -20,6 +20,7 @@ browser. `fixtures/sample-collision-report.pdf` is a synthetic document to uploa
 | Route | Body | Returns |
 |---|---|---|
 | `GET /api/health` | — | `{ ok, model, latencyMs }` after a real model call |
+| `GET /api/health/db` | — | `{ ok, buckets }` after a real Supabase call |
 | `POST /api/llm/complete` | JSON `{ prompt, system? }` | `{ text, model, usage }` |
 | `POST /api/llm/stream` | JSON `{ prompt, system? }` | plain-text stream |
 | `POST /api/llm/extract` | form-data `file`, `instructions?` | `{ data }` matching `DocumentSummary` |
