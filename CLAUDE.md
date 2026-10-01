@@ -90,7 +90,7 @@ adding screens. Tokens live in `src/app/globals.css`, fonts in `src/app/layout.t
 - **Two typefaces, each with a meaning.** Source Serif 4 (`font-heading`, `font-serif`) is for page
   headings and for words taken from a document: values and quotes. IBM Plex Sans (the default) is
   the app speaking. A reader should be able to tell which is which from the face alone.
-- **Colour has four jobs and no others.** Ledger green (`primary`) is the user's own action and
+- **Colour has three jobs and no others.** Ledger green (`primary`) is the user's own action and
   approval. Marker yellow (`marker`, `marker-soft`) is evidence and anything a person must look at.
   Red (`destructive`) means something failed. Everything else is ink on a cool off-white.
 - **Ledgers, not cards.** Lists are rows divided by hairlines with the label in a left column, as in
@@ -131,14 +131,38 @@ What exists and works, locally and on production:
   review them next to the source. Details in "The documents feature".
 - A model wrapper that passes its checks on Haiku 4.5, Sonnet 5.5 and Opus 5.5.
 
-What does not exist: database tables, saving of anything (Approve changes only the screen), auth,
-splitting of long documents, and any connection between a case and its documents.
+The one user workflow today, start to finish:
+
+1. Case list (`/`): three placeholder cases, each with its stage and status. A row opens the case.
+2. Case page (`/cases/<id>`): choose a file and press "Read document", or press "Open sample" for
+   the 12-page record that was read ahead of time by Sonnet 5.5.
+3. While it reads: the document shows on the left, and a timer and placeholder rows on the right.
+4. Review: the facts appear as a ledger. "To check" narrows it to the entries the model flagged.
+   Selecting a quote opens that page of the record with the passage highlighted. A value can be
+   edited (the original stays visible, with Restore) and a flagged entry marked as checked.
+5. Approve unlocks once nothing is left to check. Reject is always available; Reopen undoes either.
+6. A failure shows in place of the ledger and stays until the next attempt; pressing "Read document"
+   again retries without uploading the file a second time.
+
+Not built, in rough order of how likely tomorrow needs it:
+
+- Saving anything. There are no tables; Approve, Reject and edits live only in the browser tab.
+- Any step after approval (a task, a letter, an update to the case).
+- A link between a case and its documents. The review screen is the same on every case page, and
+  the case's own fields are placeholders.
+- More than one document at a time, or facts combined across documents.
+- Creating or editing a case.
+- Splitting records too long for one request, and files over 23 MB.
+- Cancelling a reading, and a warning before a review in progress is discarded.
+- Roles, sign-in and permissions.
 
 Services:
 
 - **Vercel** — production is https://law-di-gras.vercel.app, redeployed on every push to `main`.
   Hobby plan; functions may run 300 seconds. `ANTHROPIC_API_KEY`, `SUPABASE_URL` and
-  `SUPABASE_SECRET_KEY` are set there. A changed environment variable needs a redeploy.
+  `SUPABASE_SECRET_KEY` are set there. A changed environment variable needs a redeploy. On this
+  plan only commits by project members deploy; one teammate was added, and their first push has not
+  been seen to deploy yet.
 - **Anthropic** — a spend cap is set in the Console. When it is reached, every call fails with "You
   have reached your specified API usage limits".
 - **Supabase** — see "Database".
@@ -154,7 +178,8 @@ Local setup needs the same three variables in `.env.local` (see `.env.example`).
 - To add tables: write the SQL, and have the user run it in the SQL editor at
   https://supabase.com/dashboard/project/ocqpdippafieojisieln/sql/new. This machine cannot run SQL
   itself: `psql` is not installed, the Supabase CLI is not logged in, and the direct database host is
-  IPv6-only. Keep the SQL in `supabase/schema.sql` so the schema is on record.
+  IPv6-only. Keep the SQL in `supabase/schema.sql` so the schema is on record. (The owner's
+  `.env.local` also holds the database password as `SUPABASE_PASSWORD`; nothing in the app reads it.)
 - Prefer a few tables with a `jsonb` column for challenge-specific data over a detailed schema.
 - A random 401 with code `PGRST303` on table queries is a reported Supabase issue with `sb_secret_`
   keys. It has not been seen here; if it appears, retry the query once.
@@ -215,13 +240,17 @@ in a `server.ts`).
 - Flow: the browser asks `/api/documents/upload-url` for a signed URL, PUTs the file straight to the
   Storage bucket, then posts the returned path to `/api/documents/extract`, which reads the file back
   and calls the model. Nothing but the path passes through our API.
-- What to extract is the `FIELDS` list in `schema.ts`. The model returns one entry per field (several
-  for a `list` field), each with a value, a supporting quote, the page and an optional concern.
-  `tidy` in `server.ts` puts them in `FIELDS` order and adds a blank entry for anything not found.
+- What to extract is the `FIELDS` list in `schema.ts`. Today it holds ten example fields for a PI
+  medical record (client, date of incident, incident, diagnoses, treatment, charges, total charges,
+  gaps in treatment, prior conditions, work impact); replace them with the challenge's. The model
+  returns one entry per field (several for a `list` field), each with a value, a supporting quote,
+  the page and an optional concern. `tidy` in `server.ts` puts them in `FIELDS` order, adds a blank
+  entry for anything not found, and keeps (flagged) any entry under a label that was not asked for.
 - The review screen (`document-review.tsx`, `review-panel.tsx`, `source-viewer.tsx`) shows the source
-  beside the fields. A page link jumps the PDF and highlights the quote; a quote that is not in the
-  document shows no highlight, which is the reviewer's cue. This relies on desktop Chrome's built-in
-  PDF viewer and on the PDF having a text layer.
+  beside the fields. Selecting a quote jumps the PDF to its page and highlights the passage; a quote
+  that is not in the document shows no highlight, which is the reviewer's cue. This relies on desktop
+  Chrome's built-in PDF viewer and on the PDF having a text layer. Images and text files are shown
+  without page links.
 - A field needs review when the model raised a concern or gave no quote (`needsReview`). There is no
   confidence score: the model's own percentage would not be a measured number.
 - Approve is blocked until flagged fields are checked or edited. Nothing is saved.
@@ -248,11 +277,6 @@ Limits that follow:
 - A file can be at most 23 MB, because the model accepts 32 MB per request and files are sent
   base64-encoded. Larger files would need the Files API.
 - The extract route stops the model call after 270 seconds. `scripts/extract-file.ts` has no limit.
-
-Usability gaps found when the review screen was checked against the ten points above, not yet fixed:
-
-- A reading cannot be cancelled once started (point 3).
-- Choosing another file, or opening the sample, discards a review in progress without warning (5).
 
 ## Adding a feature
 
