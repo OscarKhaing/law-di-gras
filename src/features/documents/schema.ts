@@ -63,10 +63,19 @@ export const DocumentExtraction = z.object({
 export type ExtractedField = z.infer<typeof ExtractedField>;
 export type DocumentExtraction = z.infer<typeof DocumentExtraction>;
 
+/** What the extract route and scripts/extract-file.ts return, and what the review screen shows. */
+export type Extraction = {
+  data: DocumentExtraction;
+  model: string;
+  usage: { inputTokens: number; outputTokens: number };
+  /** How long the extraction took, when that was measured. */
+  seconds?: number;
+};
+
 /**
  * A field a person must look at before the document can be approved: the model raised a concern,
- * or gave a value with no quote to back it. A field with an empty value was simply not found.
+ * or gave a value with no quote to back it. An empty value with no concern was simply not found.
  */
 export function needsReview(field: ExtractedField) {
-  return field.value !== "" && (field.concern !== null || field.evidence === null);
+  return field.concern !== null || (field.value !== "" && field.evidence === null);
 }

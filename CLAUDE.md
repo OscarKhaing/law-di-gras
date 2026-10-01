@@ -52,7 +52,7 @@ src/
     api/llm/            Generic prompt endpoints (complete, stream) used by the playground.
     api/health/         Smoke tests: model (/api/health) and Supabase (/api/health/db).
   features/<name>/      One folder per product feature. Everything about the feature is here.
-    schema.ts           Zod schema and inferred types: what the model returns / what the data is.
+    schema.ts           What gets extracted, as a Zod schema and inferred types. Browser-safe.
     prompt.ts           System prompt and instructions.
     server.ts           Server functions: call the model and Supabase. Used by routes and scripts.
     *.tsx               The feature's UI components.
@@ -62,16 +62,18 @@ src/
     http.ts             Route helpers: parseJson, badRequest, errorResponse.
   components/           UI shared across features (app-sidebar). `ui/` is shadcn-generated.
   lib/                  Browser-safe helpers only (fetchJson, cn).
-scripts/                Node scripts (check-llm; put demo precompute scripts here).
+scripts/                check-llm (real-API checks), extract-file (extract a local file, no time
+                        limit), create-bucket (one-time Storage setup).
 fixtures/               Synthetic test documents.
+public/demo/            A sample record and its precomputed extraction, opened by "Open sample".
 ```
 
-Existing features: `documents` (upload → extract → human review) and `cases` (placeholder list in
-`data.ts`; replace with real queries in a `server.ts`).
+Existing features: `documents` (upload → extract → review next to the source; see below) and `cases`
+(placeholder list in `data.ts`; replace with real queries in a `server.ts`).
 
 | To change… | Open |
 |---|---|
-| What the model extracts | `src/features/<name>/schema.ts` |
+| What the model extracts | `src/features/<name>/schema.ts` (for documents, the `FIELDS` list) |
 | How the model is instructed | `src/features/<name>/prompt.ts` |
 | What happens on the server for a feature | `src/features/<name>/server.ts` |
 | What the user sees for a feature | `src/features/<name>/*.tsx` |
@@ -88,7 +90,7 @@ Run the self-check above first. Then:
 2. `src/features/<name>/prompt.ts` — the prompts.
 3. `src/features/<name>/server.ts` — a function that calls `extract` / `complete` / `streamText`.
 4. `src/app/api/<name>/<action>/route.ts` — parse the request, call that one function, return JSON.
-5. `src/features/<name>/<component>.tsx` — client UI that calls the route with `fetchJson`.
+5. `src/features/<name>/<component>.tsx` — client UI that calls the route with `postJson`.
 6. Add the component to a page in `src/app/`, and a nav entry if it gets its own page.
 7. Add a check to `scripts/check-llm.ts` so the model path can be verified without the browser.
 
@@ -102,8 +104,9 @@ Run the self-check above first. Then:
 - Use the fixed file names above inside a feature, so every feature reads the same way.
 - `src/server/**` and every feature's `server.ts` are server-only: never import them from a
   `"use client"` file. Nothing enforces this; the symptom of getting it wrong is a misleading
-  "ANTHROPIC_API_KEY is not set" error in the browser. Client components may import a feature's
-  `schema.ts` with `import type`.
+  "ANTHROPIC_API_KEY is not set" error in the browser.
+- A feature's `schema.ts` is imported by its client components, so it must stay browser-safe: Zod
+  schemas, types and small pure functions only.
 - `src/lib/` must stay safe to import in the browser: no secrets, no `process.env`, no Node APIs.
 - Imports: relative (`./schema`) inside a feature, `@/…` everywhere else. A feature imports from
   `@/server`, `@/lib` and `@/components`; if two features need the same code, move it up into one of
@@ -115,17 +118,64 @@ Run the self-check above first. Then:
 ## LLM conventions
 
 - Call the model only through `src/server/llm.ts`. Don't construct an Anthropic client anywhere else.
-- Default model is `claude-haiku-4-5` (override with `LLM_MODEL`). Haiku rejects the `effort` parameter
-  and is called without thinking; before pointing `LLM_MODEL` at an Opus- or Sonnet-class model, load the
-  `claude-api` skill, because their request parameters differ.
+- Default model is `claude-haiku-4-5`. `pnpm check-llm` also passes, with no code changes, on
+  `claude-sonnet-5-5` and `claude-opus-5-5` (checked 2026-10-01). To switch, change the default in
+  `src/server/llm.ts` and push, which moves local and production together; or set `LLM_MODEL`, which on
+  Vercel only takes effect after a redeploy.
+- The wrapper sends no `thinking` or `effort` parameter, which is the one request shape all three
+  models accept (Haiku rejects `effort`). Load the `claude-api` skill before adding either.
+- The larger models think before answering, so they are slower, and they can decline a request. A
+  declined or cut-off reply is thrown as an error, never returned as a partial answer. No fallback
+  model is configured.
 - Structured output: call `extract(Schema, { system, prompt, files })`. Every schema field must be
-  required; use `.nullable()` for unknowns.
-- Structured output and API-level citations cannot be combined. To point at sources, ask for a `page`
-  field in the schema, as `DocumentSummary` does.
-- Files: PDFs and images are sent natively; anything else is inlined as text. Use `fileFromUpload` to
-  turn a form upload into an `LlmFile`.
-- Every API error has the shape `{ error: { type, message } }`. In the browser, `fetchJson` from
-  `src/lib/fetch-json.ts` throws an Error carrying that message.
+  required; use `.nullable()` for unknowns. The SDK does not enforce `z.enum` (it becomes a hint in
+  the description), so validate or normalise such values yourself, as `tidy` in the documents feature
+  does for labels.
+- Structured output and API-level citations cannot be combined. To point at sources, ask for a quote
+  and a `page` in the schema, as `ExtractedField` does.
+- Files: PDFs and the four supported image types are sent natively, text and JSON are inlined, and
+  anything else is rejected.
+- Every API error has the shape `{ error: { type, message } }`. In the browser, `fetchJson` and
+  `postJson` from `src/lib/fetch-json.ts` throw an Error carrying that message.
+
+## The documents feature
+
+- Flow: the browser asks `/api/documents/upload-url` for a signed URL, PUTs the file straight to the
+  private Storage bucket `documents`, then posts the returned path to `/api/documents/extract`, which
+  reads the file back and calls the model. Nothing but the path passes through our API.
+- What to extract is the `FIELDS` list in `schema.ts`. The model returns one entry per field (several
+  for a `list` field), each with a value, a supporting quote, the page and an optional concern.
+  `tidy` in `server.ts` puts them in `FIELDS` order and adds a blank entry for anything not found.
+- The review screen shows the source beside the fields. A page link jumps the PDF and highlights
+  the quote; a quote that is not in the document shows no highlight, which is the reviewer's cue.
+  This relies on desktop Chrome's built-in PDF viewer.
+- A field needs review when the model raised a concern or gave no quote (`needsReview`). There is no
+  confidence score: the model's own percentage would not be a measured number.
+- Approve is blocked until flagged fields are checked or edited. Nothing is saved: there are no
+  database tables yet.
+- To show a document without waiting for the model, extract it ahead of time with
+  `pnpm -s script scripts/extract-file.ts <file> > public/demo/<name>.json`, put the file in
+  `public/demo/`, and load the pair the way `openSample` does in `document-review.tsx`.
+
+Measured on synthetic, text-only pages (real scans cost more tokens per page):
+
+| Document | Model | Input tokens | Time |
+|---|---|---|---|
+| 12 pages | claude-haiku-4-5 | 22,000 | about 20 s |
+| 12 pages | claude-sonnet-5-5 | 23,500 | about 30 s |
+| 12 pages | claude-opus-5-5 | not recorded | about 40 s |
+| 120 pages | claude-sonnet-5-5 | 218,000 | 59 s |
+
+Limits that follow from this:
+
+- Haiku takes at most 100 PDF pages and 200,000 tokens per request; above that the API answers "A
+  maximum of 100 PDF pages may be provided." Use a larger model for longer documents.
+- The larger models take 600 pages and 1,000,000 tokens. At roughly 1,800 tokens per page or more,
+  expect a ceiling of a few hundred pages. A longer record must be split into page ranges first, and
+  page numbers then need the range's offset added.
+- A file can be at most 23 MB, because the model accepts 32 MB per request and files are sent
+  base64-encoded. Larger files would need the Files API.
+- The extract route stops the model call after 270 seconds. `scripts/extract-file.ts` has no limit.
 
 ## UI conventions
 
@@ -137,9 +187,12 @@ Run the self-check above first. Then:
 ## Deployment
 
 - Production is https://law-di-gras.vercel.app and redeploys on every push to `main`.
-- Vercel rejects request bodies over 4.5 MB. Larger PDFs must be uploaded from the browser to
-  Supabase Storage and fetched server-side, not posted to an API route.
-- Routes set `maxDuration = 60`. Stream anything that could run longer.
+- Vercel rejects request and response bodies over 4.5 MB, so files never go through an API route:
+  they are uploaded from the browser to Supabase Storage and read server-side (the documents feature).
+- Model routes set `maxDuration = 300`, the most the plan allows. Streaming a response does not
+  extend it. A request that runs past it gets a bare 504 from Vercel, shown as "Request failed (504)".
+- The Storage bucket `documents` is private and created by `scripts/create-bucket.ts`. Uploaded
+  files are never deleted automatically; empty the bucket by hand when needed.
 
 ## What a good demo needs
 

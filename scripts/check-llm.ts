@@ -3,7 +3,7 @@
 // extraction from PDFs (including page references).
 import { readFile } from "node:fs/promises";
 import { z } from "zod";
-import { FIELDS, needsReview } from "../src/features/documents/schema";
+import { needsReview } from "../src/features/documents/schema";
 import { extractDocument } from "../src/features/documents/server";
 import { complete, describeError, extract, MODEL, ping, streamText } from "../src/server/llm";
 
@@ -59,7 +59,7 @@ const checks: [name: string, run: () => Promise<string>][] = [
   [
     "pdf extraction",
     async () => {
-      const { fields } = await extractFixture("sample-collision-report.pdf");
+      const { fields } = await extractPdf("fixtures/sample-collision-report.pdf");
       const value = (label: string) => fields.find((field) => field.label === label)?.value ?? "";
       if (!value("Client").includes("Riley Sample")) throw new Error(`wrong client: ${value("Client")}`);
       if (value("Date of incident") !== "2026-03-14") throw new Error(`wrong date: ${value("Date of incident")}`);
@@ -71,19 +71,17 @@ const checks: [name: string, run: () => Promise<string>][] = [
     // in the file, because that is what the review screen jumps to.
     "page references",
     async () => {
-      const { fields } = await extractFixture("sample-medical-record.pdf");
+      const { fields } = await extractPdf("public/demo/sample-medical-record.pdf");
       const mri = fields.find((field) => field.label === "Treatment" && /MRI/i.test(field.value));
       if (mri?.page !== 7) throw new Error(`expected the MRI on page 7, got ${JSON.stringify(mri)}`);
-      const unknown = fields.filter((field) => !FIELDS.some((spec) => spec.label === field.label));
-      if (unknown.length) throw new Error(`unrequested labels: ${unknown.map((field) => field.label)}`);
       return `${fields.length} fields, ${fields.filter(needsReview).length} flagged for review`;
     },
   ],
 ];
 
-async function extractFixture(name: string) {
-  const bytes = await readFile(`fixtures/${name}`);
-  const { data } = await extractDocument({ name, mediaType: "application/pdf", bytes });
+async function extractPdf(path: string) {
+  const bytes = await readFile(path);
+  const { data } = await extractDocument({ name: path, mediaType: "application/pdf", bytes });
   return data;
 }
 

@@ -24,6 +24,8 @@ export type LlmRequest = {
   files?: LlmFile[];
   maxTokens?: number;
   model?: string;
+  /** Stops the call when aborted. Routes use it to stay inside their time limit; scripts leave it out. */
+  signal?: AbortSignal;
 };
 
 let client: Anthropic | undefined;
@@ -102,40 +104,57 @@ function meta(message: Anthropic.Message) {
   };
 }
 
-/** One prompt in, full text out. */
-export async function complete(req: LlmRequest) {
-  const message = await anthropic().messages.create(params(req, 16000));
-  const text = message.content
+// Larger models put thinking blocks before the text, so select by type, never by position.
+function textOf(message: Anthropic.Message) {
+  return message.content
     .filter((block) => block.type === "text")
     .map((block) => block.text)
     .join("");
-  return { text, ...meta(message) };
+}
+
+/** A reply is only usable when the model finished on its own. */
+function assertComplete(message: Anthropic.Message) {
+  if (message.stop_reason === "refusal") {
+    const why = message.stop_details?.explanation ?? "No reason was given.";
+    throw new LlmError(`${message.model} declined this request. ${why}`, 422);
+  }
+  if (message.stop_reason === "max_tokens" || message.stop_reason === "model_context_window_exceeded") {
+    throw new LlmError(
+      `The reply was cut off (${message.stop_reason}) after ${message.usage.output_tokens} output tokens. Ask for less, or raise maxTokens.`,
+      502,
+    );
+  }
+}
+
+/** One prompt in, full text out. */
+export async function complete(req: LlmRequest) {
+  const message = await anthropic().messages.create(params(req, 16000), { signal: req.signal });
+  assertComplete(message);
+  return { text: textOf(message), ...meta(message) };
 }
 
 /** Prompt (plus optional PDF/image/text files) in, JSON matching `schema` out. */
 export async function extract<T extends z.ZodType>(schema: T, req: LlmRequest) {
-  // Streamed so that a long document with a long answer is not cut off by an HTTP timeout.
+  const format = zodOutputFormat(schema);
+  // Streamed, so a long answer is not cut off by an HTTP timeout. Only the schema is sent, not the
+  // SDK's parser, so a cut-off or declined reply is reported as such instead of as a parse error.
   const message = await anthropic()
-    .messages.stream({
-      ...params(req, 32000),
-      output_config: { format: zodOutputFormat(schema) },
-    })
+    .messages.stream(
+      { ...params(req, 32000), output_config: { format: { type: format.type, schema: format.schema } } },
+      { signal: req.signal },
+    )
     .finalMessage();
-  if (message.stop_reason === "max_tokens") {
-    throw new LlmError("The model's answer was cut off because it was too long. Ask for less.", 502);
+  assertComplete(message);
+  try {
+    return { data: format.parse(textOf(message)) as z.infer<T>, ...meta(message) };
+  } catch (err) {
+    throw new LlmError(`The model's output did not match the schema. ${describeError(err).message}`, 502);
   }
-  if (message.parsed_output == null) {
-    throw new LlmError(
-      `Model returned no parsable output (stop_reason: ${message.stop_reason}).`,
-      502,
-    );
-  }
-  return { data: message.parsed_output, ...meta(message) };
 }
 
 /** Text chunks as they are generated, ready to hand to `new Response(...)`. */
 export function streamText(req: LlmRequest): ReadableStream<Uint8Array> {
-  const stream = anthropic().messages.stream(params(req, 32000));
+  const stream = anthropic().messages.stream(params(req, 32000), { signal: req.signal });
   const encoder = new TextEncoder();
   let cancelled = false;
   return new ReadableStream({
@@ -149,6 +168,7 @@ export function streamText(req: LlmRequest): ReadableStream<Uint8Array> {
             controller.enqueue(encoder.encode(event.delta.text));
           }
         }
+        assertComplete(await stream.finalMessage());
       } catch (err) {
         if (cancelled) return;
         // Headers are already sent, so surface the failure in the text itself.
@@ -168,11 +188,11 @@ export function streamText(req: LlmRequest): ReadableStream<Uint8Array> {
 /** Smallest possible round trip, used by /api/health and the check script. */
 export async function ping() {
   const started = Date.now();
-  const result = await complete({
-    prompt: "Reply with the single word: ok",
-    maxTokens: 16,
-  });
-  return { reply: result.text.trim(), model: result.model, latencyMs: Date.now() - started };
+  // Thinking counts toward max_tokens on the larger models, so leave room for it before the reply.
+  const result = await complete({ prompt: "Reply with the single word: ok", maxTokens: 2048 });
+  const reply = result.text.trim();
+  if (!reply) throw new LlmError(`${result.model} returned an empty reply.`, 502);
+  return { reply, model: result.model, latencyMs: Date.now() - started };
 }
 
 export function describeError(err: unknown): { status: number; type: string; message: string } {
@@ -186,11 +206,24 @@ export function describeError(err: unknown): { status: number; type: string; mes
       message: "Anthropic rejected the API key. Check ANTHROPIC_API_KEY.",
     };
   }
-  if (err instanceof Anthropic.RateLimitError) {
-    return { status: 429, type: "rate_limit_error", message: "Rate limited by Anthropic. Retry shortly." };
+  if (err instanceof Anthropic.APIUserAbortError) {
+    return {
+      status: 504,
+      type: "timeout",
+      message:
+        "The model did not finish within the time limit. Use a shorter document, or run it with scripts/extract-file.ts, which has no limit.",
+    };
   }
   if (err instanceof Anthropic.APIConnectionError) {
     return { status: 502, type: "connection_error", message: "Could not reach the Anthropic API." };
+  }
+  if (err instanceof Anthropic.APIError && err.status === 413) {
+    // Rejected at the edge, with no JSON body to quote.
+    return {
+      status: 413,
+      type: "request_too_large",
+      message: "The request is over the model's 32 MB limit. Use a smaller file or split it.",
+    };
   }
   if (err instanceof Anthropic.APIError) {
     // err.message is "<status> <raw JSON body>"; prefer the API's own message when the body has one,

@@ -2,22 +2,22 @@
 
 import { useState } from "react";
 import { CheckIcon, RotateCcwIcon, TriangleAlertIcon, XIcon } from "lucide-react";
-import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { needsReview, type DocumentExtraction, type ExtractedField } from "./schema";
+import { needsReview, type ExtractedField, type Extraction } from "./schema";
 
-type Row = ExtractedField & { original: string; confirmed: boolean };
+// `original` is what the model extracted and is never overwritten; `flagged` is fixed when the
+// extraction loads, so the "To check" view keeps a row in place after it has been dealt with.
+type Row = ExtractedField & { original: string; flagged: boolean; confirmed: boolean };
 type RowStatus = "ok" | "review" | "confirmed" | "edited" | "missing";
 type Decision = "pending" | "approved" | "rejected";
 
 function statusOf(row: Row): RowStatus {
   if (row.value !== row.original) return "edited";
-  if (row.original === "") return "missing";
-  if (!needsReview(row)) return "ok";
-  return row.confirmed ? "confirmed" : "review";
+  if (row.flagged) return row.confirmed ? "confirmed" : "review";
+  return row.original === "" ? "missing" : "ok";
 }
 
 const STATUS_BADGE: Partial<Record<RowStatus, string>> = {
@@ -26,28 +26,38 @@ const STATUS_BADGE: Partial<Record<RowStatus, string>> = {
   edited: "Edited",
 };
 
+const count = new Intl.NumberFormat("en-US");
+
 /**
  * The extracted fields, each editable and shown with the quote and page it came from.
- * Fields the model was unsure about must be checked or edited before the document can be approved.
+ * Fields the model flagged must be checked or edited before the document can be approved.
  */
 export function ReviewPanel({
   extraction,
-  model,
-  onJump,
+  onShow,
 }: {
-  extraction: DocumentExtraction;
-  model: string;
-  /** Show the given page of the source. Omit it when the source has no pages (images, text). */
-  onJump?: (page: number) => void;
+  extraction: Extraction;
+  /** Show a page of the source with a quote highlighted. Omit it when the source has no pages. */
+  onShow?: (page: number, quote: string | null) => void;
 }) {
+  const { data, model, usage, seconds } = extraction;
   const [rows, setRows] = useState<Row[]>(() =>
-    extraction.fields.map((field) => ({ ...field, original: field.value, confirmed: false })),
+    data.fields.map((field) => ({
+      ...field,
+      original: field.value,
+      flagged: needsReview(field),
+      confirmed: false,
+    })),
   );
+  const [onlyFlagged, setOnlyFlagged] = useState(false);
+  const [shown, setShown] = useState<number | null>(null);
   const [decision, setDecision] = useState<Decision>("pending");
 
   const locked = decision !== "pending";
-  const toCheck = rows.filter((row) => statusOf(row) === "review").length;
-  const notFound = rows.filter((row) => statusOf(row) === "missing").length;
+  const having = (status: RowStatus) => rows.filter((row) => statusOf(row) === status).length;
+  const toCheck = having("review");
+  const flagged = rows.filter((row) => row.flagged).length;
+  const nothingFound = rows.every((row) => row.value.trim() === "");
 
   function update(index: number, patch: Partial<Row>) {
     setRows((current) => current.map((row, i) => (i === index ? { ...row, ...patch } : row)));
@@ -56,6 +66,7 @@ export function ReviewPanel({
   // Consecutive entries with the same label (one per item of a list field) share a heading.
   const groups: { label: string; items: { row: Row; index: number }[] }[] = [];
   rows.forEach((row, index) => {
+    if (onlyFlagged && !row.flagged) return;
     const last = groups.at(-1);
     if (last?.label === row.label) last.items.push({ row, index });
     else groups.push({ label: row.label, items: [{ row, index }] });
@@ -64,11 +75,27 @@ export function ReviewPanel({
   return (
     <div className="space-y-4">
       <div className="space-y-1">
-        <h2 className="text-base font-medium capitalize">{extraction.documentType}</h2>
-        <p className="text-sm text-muted-foreground">{extraction.summary}</p>
+        <h2 className="text-base font-medium capitalize">{data.documentType}</h2>
+        <p className="text-sm text-muted-foreground">{data.summary}</p>
         <p className="text-xs text-muted-foreground">
-          {rows.length - notFound} found · {toCheck} to check · {notFound} not in this document · {model}
+          {model} read {count.format(usage.inputTokens)} tokens
+          {seconds != null && ` in ${seconds} s`}. The quotes are the model&apos;s own
+          {onShow && ": open a page to see the quote highlighted in the source"}.
         </p>
+      </div>
+
+      <div className="flex gap-1.5">
+        <Button size="sm" variant={onlyFlagged ? "ghost" : "secondary"} onClick={() => setOnlyFlagged(false)}>
+          All {rows.length}
+        </Button>
+        <Button
+          size="sm"
+          variant={onlyFlagged ? "secondary" : "ghost"}
+          disabled={flagged === 0}
+          onClick={() => setOnlyFlagged(true)}
+        >
+          To check {flagged}
+        </Button>
       </div>
 
       <div className="space-y-4">
@@ -88,6 +115,7 @@ export function ReviewPanel({
                   className={cn(
                     "space-y-1.5 rounded-lg border p-2.5",
                     status === "review" && "border-amber-400/70 bg-amber-50 dark:bg-amber-950/30",
+                    shown === index && "ring-2 ring-ring",
                   )}
                 >
                   <div className="flex items-start gap-2">
@@ -106,22 +134,40 @@ export function ReviewPanel({
                     )}
                   </div>
 
+                  {status === "edited" && (
+                    <p className="text-xs text-muted-foreground">
+                      {row.original ? `Extracted as: ${row.original}` : "Nothing was extracted for this field."}
+                      {!locked && (
+                        <button
+                          type="button"
+                          className="ml-2 underline underline-offset-2"
+                          onClick={() => update(index, { value: row.original })}
+                        >
+                          Restore
+                        </button>
+                      )}
+                    </p>
+                  )}
+
                   {row.evidence && (
                     <div className="flex items-start justify-between gap-2 text-xs text-muted-foreground">
                       <blockquote className="border-l-2 pl-2 italic">“{row.evidence}”</blockquote>
-                      {onJump && row.page != null && (
+                      {onShow && row.page != null && (
                         <Button
                           variant="outline"
                           size="xs"
                           className="shrink-0"
-                          onClick={() => onJump(row.page!)}
+                          onClick={() => {
+                            setShown(index);
+                            onShow(row.page!, row.evidence);
+                          }}
                         >
                           p. {row.page}
                         </Button>
                       )}
                     </div>
                   )}
-                  {status !== "missing" && !row.evidence && (
+                  {row.original !== "" && !row.evidence && (
                     <p className="text-xs text-muted-foreground">The model gave no supporting quote.</p>
                   )}
 
@@ -151,6 +197,10 @@ export function ReviewPanel({
             <Badge variant={decision === "approved" ? "secondary" : "destructive"}>
               {decision === "approved" ? "Approved" : "Rejected"}
             </Badge>
+            <span className="text-sm text-muted-foreground">
+              {having("ok")} as extracted, {having("confirmed")} checked, {having("edited")} edited. Not saved:
+              there is no database behind this screen yet.
+            </span>
             <Button variant="ghost" size="sm" onClick={() => setDecision("pending")}>
               <RotateCcwIcon />
               Reopen
@@ -158,14 +208,7 @@ export function ReviewPanel({
           </>
         ) : (
           <>
-            <Button
-              size="sm"
-              disabled={toCheck > 0}
-              onClick={() => {
-                setDecision("approved");
-                toast.success("Approved. Nothing is saved yet: there is no database behind this screen.");
-              }}
-            >
+            <Button size="sm" disabled={toCheck > 0 || nothingFound} onClick={() => setDecision("approved")}>
               <CheckIcon />
               Approve
             </Button>
@@ -174,7 +217,11 @@ export function ReviewPanel({
               Reject
             </Button>
             <span className="text-sm text-muted-foreground">
-              {toCheck > 0 ? `${toCheck} to check before approving` : "Ready to approve"}
+              {nothingFound
+                ? "Nothing was found in this document"
+                : toCheck > 0
+                  ? `${toCheck} to check before approving`
+                  : "Ready to approve"}
             </span>
           </>
         )}
