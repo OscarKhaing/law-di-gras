@@ -53,6 +53,8 @@ abstractions that aren't needed today.
 - Vercel rejects request bodies over 4.5 MB. Larger PDFs must be uploaded from the browser to
   Supabase Storage and fetched server-side, not posted to an API route.
 - Routes set `maxDuration = 60`. Stream anything that could run longer.
+- `src/proxy.ts` puts the whole site behind HTTP Basic Auth when `SITE_PASSWORD` is set (any
+  username). When testing a protected deployment with curl, pass `-u x:$SITE_PASSWORD`.
 
 ## What a good demo needs
 
