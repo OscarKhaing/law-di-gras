@@ -72,13 +72,35 @@ For each screen in the journey, write down:
 
 Rules for this app:
 
-- Use the words of the user's role (see "PI vocabulary"), not ours. "Extract" and "fields" are our
-  words; a case manager pulls facts from a record.
+- Use the words of the user's role (see "PI vocabulary"), not ours. The app "reads a document" and
+  lists "facts"; "extract" and "fields" are our words and stay in the code.
 - Anything the model produced is shown beside its source, can be edited, and is approved by a person.
-- Keep it restrained: shadcn components as they come, no decoration. Amber means a person must look;
-  red means something failed. Do not use colour for anything else.
 - If more than one role is involved, state what each can see, edit and approve. Hiding a button is
   not a permission; enforce it in the route.
+
+### The visual system
+
+The look is deliberate, not shadcn's default. The project has the `frontend-design` plugin enabled
+(see `.claude/settings.json`); use that skill for visual work, and stay inside this system when
+adding screens. Tokens live in `src/app/globals.css`, fonts in `src/app/layout.tsx`.
+
+- **The one bold idea is the highlighter.** A passage quoted from a document is drawn as a marker
+  stroke (`bg-marker`), the same gesture as the highlight that appears in the source. Spend boldness
+  there and keep everything around it quiet.
+- **Two typefaces, each with a meaning.** Source Serif 4 (`font-heading`, `font-serif`) is for page
+  headings and for words taken from a document: values and quotes. IBM Plex Sans (the default) is
+  the app speaking. A reader should be able to tell which is which from the face alone.
+- **Colour has four jobs and no others.** Ledger green (`primary`) is the user's own action and
+  approval. Marker yellow (`marker`, `marker-soft`) is evidence and anything a person must look at.
+  Red (`destructive`) means something failed. Everything else is ink on a cool off-white.
+- **Ledgers, not cards.** Lists are rows divided by hairlines with the label in a left column, as in
+  `review-panel.tsx` and the case table. Do not wrap each item in its own rounded box.
+- **Structure must carry information.** The stage track on a case is there because the stages really
+  are a sequence. Do not add numbering, labels above headings, or dividers that encode nothing.
+- **One piece of motion per screen**, and only in answer to something the user did: the ledger rows
+  arriving when a reading lands. No hover effects on every row, no entrance animation on page load.
+- Avoid the marks of a generated page: all-caps labels, facts strung together with middle dots,
+  arrows on links, a monospace face for small labels, one accent word in a heading.
 
 Before calling a screen done, capture each of its states with `scripts/screenshot.ts` and check them
 against these ten points (Nielsen's usability heuristics):
@@ -229,9 +251,8 @@ Limits that follow:
 
 Usability gaps found when the review screen was checked against the ten points above, not yet fixed:
 
-- An extraction cannot be cancelled once started (point 3).
+- A reading cannot be cancelled once started (point 3).
 - Choosing another file, or opening the sample, discards a review in progress without warning (5).
-- "Extract" is our word, not the user's (2). Rename it once the user's role is known.
 
 ## Adding a feature
 

@@ -1,13 +1,18 @@
 // Placeholder rows so the shell renders. Replace with real queries once the data model is designed.
+
+/** The path a personal injury case takes, in order. */
+export const STAGES = ["Intake", "Claim setup", "Treatment", "Records & bills", "Demand", "Settlement"] as const;
+export type Stage = (typeof STAGES)[number];
+
 export type CaseStatus = "on_track" | "needs_review" | "blocked";
 
 export type Case = {
   id: string;
   client: string;
   matter: string;
-  stage: string;
+  stage: Stage;
   status: CaseStatus;
-  updatedAt: string;
+  updatedAt: string; // YYYY-MM-DD
 };
 
 export const CASES: Case[] = [
@@ -36,3 +41,10 @@ export const CASES: Case[] = [
     updatedAt: "2026-09-12",
   },
 ];
+
+const dayMonth = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+
+/** "2026-09-29" as "Sep 29". */
+export function shortDate(isoDate: string) {
+  return dayMonth.format(new Date(`${isoDate}T00:00:00Z`));
+}

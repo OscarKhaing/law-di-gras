@@ -38,7 +38,7 @@ export function SourceViewer({ source, target }: { source: Source; target: ViewT
       key={target.nonce}
       title={`Source document: ${source.name}`}
       src={isPdf ? source.url + fragment : source.url}
-      className="size-full rounded-lg border bg-muted"
+      className="size-full rounded-lg border bg-card shadow-sm"
     />
   );
 }

@@ -8,8 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { needsReview, type ExtractedField, type Extraction } from "./schema";
 
-// `original` is what the model extracted and is never overwritten; `flagged` is fixed when the
-// extraction loads, so the "To check" view keeps a row in place after it has been dealt with.
+// `original` is what the model read and is never overwritten; `flagged` is fixed when the result
+// loads, so the "To check" view keeps a row in place after it has been dealt with.
 type Row = ExtractedField & { original: string; flagged: boolean; confirmed: boolean };
 type RowStatus = "ok" | "review" | "confirmed" | "edited" | "missing";
 type Decision = "pending" | "approved" | "rejected";
@@ -20,17 +20,19 @@ function statusOf(row: Row): RowStatus {
   return row.original === "" ? "missing" : "ok";
 }
 
-const STATUS_BADGE: Partial<Record<RowStatus, string>> = {
-  review: "Needs review",
-  confirmed: "Checked",
-  edited: "Edited",
+const STATUS_BADGE: Partial<Record<RowStatus, { label: string; className: string }>> = {
+  review: { label: "Needs review", className: "bg-marker text-foreground" },
+  confirmed: { label: "Checked", className: "bg-secondary text-primary" },
+  edited: { label: "Edited", className: "bg-secondary text-primary" },
 };
 
 const count = new Intl.NumberFormat("en-US");
 
 /**
- * The extracted fields, each editable and shown with the quote and page it came from.
- * Fields the model flagged must be checked or edited before the document can be approved.
+ * The facts read from a document, laid out as a ledger: one row per field, each entry editable
+ * and shown with the quote and page it came from. Words taken from the document are set in the
+ * serif face and its quotes in marker yellow; everything in the sans face is the app speaking.
+ * Entries the model flagged must be checked or edited before the document can be approved.
  */
 export function ReviewPanel({
   extraction,
@@ -63,7 +65,7 @@ export function ReviewPanel({
     setRows((current) => current.map((row, i) => (i === index ? { ...row, ...patch } : row)));
   }
 
-  // Consecutive entries with the same label (one per item of a list field) share a heading.
+  // Consecutive entries with the same label (one per item of a list field) share a ledger row.
   const groups: { label: string; items: { row: Row; index: number }[] }[] = [];
   rows.forEach((row, index) => {
     if (onlyFlagged && !row.flagged) return;
@@ -73,14 +75,16 @@ export function ReviewPanel({
   });
 
   return (
-    <div className="space-y-4">
-      <div className="space-y-1">
-        <h3 className="text-base font-medium capitalize">{data.documentType}</h3>
-        <p className="text-sm text-muted-foreground">{data.summary}</p>
+    <div className="space-y-5">
+      <div className="space-y-2">
+        <h3 className="font-heading text-2xl font-semibold tracking-tight first-letter:uppercase">
+          {data.documentType}
+        </h3>
+        <p className="max-w-prose text-sm leading-relaxed">{data.summary}</p>
         <p className="text-xs text-muted-foreground">
-          {model} read {count.format(usage.inputTokens)} tokens
+          Read by {model}: {count.format(usage.inputTokens)} tokens
           {seconds != null && ` in ${seconds} s`}. The quotes are the model&apos;s own
-          {onShow && ": open a page to see the quote highlighted in the source"}.
+          {onShow && "; select one to see it marked in the record"}.
         </p>
       </div>
 
@@ -98,95 +102,108 @@ export function ReviewPanel({
         </Button>
       </div>
 
-      <div className="space-y-4">
-        {groups.map((group) => (
-          <section key={`${group.label}-${group.items[0].index}`} className="space-y-1.5">
-            <h4 className="text-sm font-medium">
+      <div className="divide-y border-y">
+        {groups.map((group, position) => (
+          // The rows arrive one after another when a reading lands: the screen's one piece of motion.
+          <section
+            key={`${group.label}-${group.items[0].index}`}
+            style={{ animationDelay: `${Math.min(position, 14) * 45}ms` }}
+            className="grid animate-in gap-x-4 gap-y-1.5 py-3 duration-500 fill-mode-both fade-in motion-reduce:animate-none sm:grid-cols-[7.5rem_minmax(0,1fr)]"
+          >
+            <h4 className="text-sm font-medium text-muted-foreground sm:pt-1.5">
               {group.label}
-              {group.items.length > 1 && (
-                <span className="ml-1.5 font-normal text-muted-foreground">{group.items.length}</span>
-              )}
+              {group.items.length > 1 && <span className="ml-1.5 font-normal">{group.items.length}</span>}
             </h4>
-            {group.items.map(({ row, index }) => {
-              const status = statusOf(row);
-              return (
-                <div
-                  key={index}
-                  className={cn(
-                    "space-y-1.5 rounded-lg border p-2.5",
-                    status === "review" && "border-amber-400/70 bg-amber-50 dark:bg-amber-950/30",
-                    shown === index && "ring-2 ring-ring",
-                  )}
-                >
-                  <div className="flex items-start gap-2">
+            <div className="space-y-3">
+              {group.items.map(({ row, index }) => {
+                const status = statusOf(row);
+                const badge = STATUS_BADGE[status];
+                return (
+                  <div
+                    key={index}
+                    className={cn(
+                      "space-y-1.5 border-l-2 border-transparent pl-3",
+                      status === "review" && "rounded-r-md border-marker bg-marker-soft py-2.5 pr-2.5",
+                      shown === index && status !== "review" && "border-primary",
+                    )}
+                  >
+                    {badge && <Badge className={badge.className}>{badge.label}</Badge>}
                     <Textarea
                       aria-label={group.label}
                       value={row.value}
                       placeholder="Not in this document"
                       disabled={locked}
                       onChange={(event) => update(index, { value: event.target.value })}
-                      className="min-h-8 bg-background py-1.5"
+                      className="min-h-8 bg-card py-1.5 font-serif text-[15px] leading-snug md:text-[15px]"
                     />
-                    {STATUS_BADGE[status] && (
-                      <Badge variant={status === "review" ? "outline" : "secondary"} className="mt-1.5">
-                        {STATUS_BADGE[status]}
-                      </Badge>
-                    )}
-                  </div>
 
-                  {status === "edited" && (
-                    <p className="text-xs text-muted-foreground">
-                      {row.original ? `Extracted as: ${row.original}` : "Nothing was extracted for this field."}
-                      {!locked && (
+                    {status === "edited" && (
+                      <p className="text-xs text-muted-foreground">
+                        {row.original ? (
+                          <>
+                            Read from the document as: <span className="font-serif">{row.original}</span>
+                          </>
+                        ) : (
+                          "Nothing was read from the document for this."
+                        )}
+                        {!locked && (
+                          <button
+                            type="button"
+                            className="ml-2 font-medium text-primary underline underline-offset-2"
+                            onClick={() => update(index, { value: row.original })}
+                          >
+                            Restore
+                          </button>
+                        )}
+                      </p>
+                    )}
+
+                    {row.evidence &&
+                      (onShow && row.page != null ? (
                         <button
                           type="button"
-                          className="ml-2 underline underline-offset-2"
-                          onClick={() => update(index, { value: row.original })}
-                        >
-                          Restore
-                        </button>
-                      )}
-                    </p>
-                  )}
-
-                  {row.evidence && (
-                    <div className="flex items-start justify-between gap-2 text-xs text-muted-foreground">
-                      <blockquote className="border-l-2 pl-2 italic">“{row.evidence}”</blockquote>
-                      {onShow && row.page != null && (
-                        <Button
-                          variant="outline"
-                          size="xs"
-                          className="shrink-0"
+                          className="group/quote block text-left"
                           onClick={() => {
                             setShown(index);
                             onShow(row.page!, row.evidence);
                           }}
                         >
-                          p. {row.page}
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                  {row.original !== "" && !row.evidence && (
-                    <p className="text-xs text-muted-foreground">The model gave no supporting quote.</p>
-                  )}
+                          <Quote text={row.evidence} lit={shown === index} />
+                          <span className="ml-2 text-xs font-medium whitespace-nowrap text-primary group-hover/quote:underline">
+                            p. {row.page}
+                          </span>
+                        </button>
+                      ) : (
+                        <p>
+                          <Quote text={row.evidence} lit={false} />
+                        </p>
+                      ))}
+                    {row.original !== "" && !row.evidence && (
+                      <p className="text-xs text-muted-foreground">No supporting quote was given.</p>
+                    )}
 
-                  {row.concern && (
-                    <p className="flex gap-1.5 text-xs text-amber-800 dark:text-amber-300">
-                      <TriangleAlertIcon className="mt-0.5 size-3.5 shrink-0" />
-                      {row.concern}
-                    </p>
-                  )}
+                    {row.concern && (
+                      <p className="flex gap-1.5 text-[13px] leading-snug">
+                        <TriangleAlertIcon className="mt-0.5 size-3.5 shrink-0 text-amber-600" />
+                        {row.concern}
+                      </p>
+                    )}
 
-                  {status === "review" && !locked && (
-                    <Button variant="outline" size="xs" onClick={() => update(index, { confirmed: true })}>
-                      <CheckIcon />
-                      Mark as checked
-                    </Button>
-                  )}
-                </div>
-              );
-            })}
+                    {status === "review" && !locked && (
+                      <Button
+                        variant="outline"
+                        size="xs"
+                        className="bg-card"
+                        onClick={() => update(index, { confirmed: true })}
+                      >
+                        <CheckIcon />
+                        Mark as checked
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </section>
         ))}
       </div>
@@ -194,12 +211,14 @@ export function ReviewPanel({
       <div className="sticky bottom-0 flex flex-wrap items-center gap-2 border-t bg-background py-3">
         {locked ? (
           <>
-            <Badge variant={decision === "approved" ? "secondary" : "destructive"}>
+            <Badge
+              className={decision === "approved" ? "bg-primary text-primary-foreground" : "bg-destructive/10 text-destructive"}
+            >
               {decision === "approved" ? "Approved" : "Rejected"}
             </Badge>
             <span className="text-sm text-muted-foreground">
-              {having("ok")} as extracted, {having("confirmed")} checked, {having("edited")} edited. Not saved:
-              there is no database behind this screen yet.
+              {having("ok")} as read, {having("confirmed")} checked, {having("edited")} edited. Not saved: there
+              is no database behind this screen yet.
             </span>
             <Button variant="ghost" size="sm" onClick={() => setDecision("pending")}>
               <RotateCcwIcon />
@@ -212,7 +231,7 @@ export function ReviewPanel({
               <CheckIcon />
               Approve
             </Button>
-            <Button size="sm" variant="outline" onClick={() => setDecision("rejected")}>
+            <Button size="sm" variant="outline" className="bg-card" onClick={() => setDecision("rejected")}>
               <XIcon />
               Reject
             </Button>
@@ -227,5 +246,20 @@ export function ReviewPanel({
         )}
       </div>
     </div>
+  );
+}
+
+/** A passage quoted from the document, drawn as a marker stroke; brighter while it is the one shown. */
+function Quote({ text, lit }: { text: string; lit: boolean }) {
+  return (
+    <mark
+      className={cn(
+        "box-decoration-clone px-0.5 font-serif text-[13px] leading-relaxed text-foreground transition-colors",
+        lit ? "bg-marker" : "bg-marker/45 group-hover/quote:bg-marker",
+      )}
+    >
+      {/* Dot leaders ("Total ........ $5.00") are shortened so the quote reads as a sentence. */}
+      {text.replace(/\s*\.{4,}\s*/g, " … ")}
+    </mark>
   );
 }

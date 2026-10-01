@@ -72,7 +72,7 @@ export default function PlaygroundPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-4">
-      <h1 className="text-xl font-semibold">LLM playground</h1>
+      <h1 className="font-heading text-3xl font-semibold tracking-tight">LLM playground</h1>
 
       <Card>
         <CardHeader>

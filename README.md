@@ -15,7 +15,7 @@ pnpm dev                     # http://localhost:3000
 On a new Supabase project, also run `pnpm -s script scripts/create-bucket.ts` once to create the
 private Storage bucket that uploads go to.
 
-Open a case from the list to review a document: choose a PDF, image or text file and click Extract, or
+Open a case from the list to review a document: choose a PDF, image or text file and click **Read document**, or
 click **Open sample** to see a 12-page synthetic medical record that was extracted ahead of time. The
 review screen needs desktop Chrome, whose PDF viewer does the page jumps and quote highlighting.
 

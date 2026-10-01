@@ -126,11 +126,13 @@ export function DocumentReview() {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-base font-medium">Review a document</h2>
-        <p className="text-sm text-muted-foreground">
-          Choose a PDF, image or text file to pull out its facts and check each one against the source, or
-          open the sample record to see how it works.
-        </p>
+        <h2 className="font-heading text-xl font-semibold tracking-tight">Review a document</h2>
+        {!source && (
+          <p className="mt-1 max-w-prose text-sm text-muted-foreground">
+            Choose a PDF, image or text file. Case Desk reads it and lists the facts it finds, each with the
+            sentence it came from, for you to check. Or open the sample record to see how it works.
+          </p>
+        )}
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Input
@@ -138,15 +140,15 @@ export function DocumentReview() {
           type="file"
           accept={ACCEPT}
           aria-label="Document to review"
-          className="max-w-sm"
+          className="max-w-sm bg-card"
           disabled={busy}
           onChange={(event) => choose(event.target.files?.[0])}
         />
         <Button onClick={run} disabled={!upload || busy}>
           <FileUpIcon />
-          {phase === "uploading" ? "Uploading…" : phase === "extracting" ? "Extracting…" : "Extract"}
+          {phase === "uploading" ? "Uploading…" : phase === "extracting" ? "Reading…" : "Read document"}
         </Button>
-        <Button variant="outline" onClick={openSample} disabled={busy}>
+        <Button variant="outline" className="bg-card" onClick={openSample} disabled={busy}>
           <FileTextIcon />
           Open sample
         </Button>
@@ -154,7 +156,7 @@ export function DocumentReview() {
       </div>
 
       {source && (
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <div className="grid gap-6 lg:grid-cols-2">
           <div className="h-[70vh] lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)]">
             <SourceViewer source={source} target={target} />
           </div>
@@ -182,7 +184,7 @@ export function DocumentReview() {
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Extract to pull the facts out of this document and check them against the source.
+                Read the document to list its facts here, each with the sentence it came from.
               </p>
             )}
           </div>

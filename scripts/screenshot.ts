@@ -1,7 +1,8 @@
 // Take a picture of a page, optionally after some steps, so UI work can be checked by eye:
 //   pnpm -s script scripts/screenshot.ts /cases/c-1001 --click "Open sample" --wait 2000 --out screenshots/review.png
 //
-// Steps run in the order given:  --click <button or link text>   --upload <file>   --wait <ms>
+// Steps run in the order given:  --click <text a button or link starts with, or else contains>
+//                                 --upload <file>   --wait <ms>
 // Other options:                 --out <file.png> (default screenshots/latest.png)
 //                                --size 1440x900   --full (whole page, not just the window)
 //
@@ -54,9 +55,10 @@ async function main() {
         await input.uploadFile(resolve(step.value));
       } else {
         const clicked = await page.evaluate((text) => {
-          const element = [...document.querySelectorAll<HTMLElement>("button, a, [role=button]")].find((el) =>
-            el.textContent?.trim().startsWith(text),
-          );
+          const all = [...document.querySelectorAll<HTMLElement>("button, a, [role=button]")];
+          const element =
+            all.find((el) => el.textContent?.trim().startsWith(text)) ??
+            all.find((el) => el.textContent?.includes(text));
           element?.scrollIntoView({ block: "center" });
           element?.click();
           return Boolean(element);
