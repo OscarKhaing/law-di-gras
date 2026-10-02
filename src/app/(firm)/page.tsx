@@ -2,6 +2,8 @@ import Link from "next/link";
 import { StatusPill } from "@/components/status";
 import { buttonVariants } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { WORKLISTS } from "@/features/brief/schema";
+import { listedCases } from "@/features/brief/server";
 import { LocalTime } from "@/features/cases/local-time";
 import type { CaseSummary } from "@/features/cases/schema";
 import { listMatters } from "@/features/cases/server";
@@ -10,12 +12,19 @@ import { StageTrack } from "@/features/cases/stage-track";
 // Read on every request: the list is the matters in Clio now, and which of them have been read.
 export const dynamic = "force-dynamic";
 
-export default async function CasesPage() {
+export default async function CasesPage({ searchParams }: PageProps<"/">) {
+  // `?show=overdue` narrows the list to one of the sidebar's worklists.
+  const { show } = await searchParams;
+  const worklist = WORKLISTS.find((list) => list.id === show);
   let connected = false;
   let matters: CaseSummary[] = [];
   let failure = "";
   try {
     ({ connected, matters } = await listMatters());
+    if (worklist) {
+      const onIt = new Set((await listedCases()).filter((item) => item.lists.includes(worklist.id)).map((item) => item.matterId));
+      matters = matters.filter((matter) => onIt.has(matter.matterId));
+    }
   } catch (err) {
     failure = (err as { message?: string } | null)?.message ?? "Clio or the database could not be reached.";
   }
@@ -23,8 +32,19 @@ export default async function CasesPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <div>
-        <h1 className="font-heading text-3xl font-semibold tracking-tight">Cases</h1>
-        <p className="mt-1 text-muted-foreground">The matters in your Clio account. Open one to read its brief.</p>
+        <h1 className="font-heading text-3xl font-semibold tracking-tight">{worklist ? worklist.label : "Cases"}</h1>
+        <p className="mt-1 text-muted-foreground">
+          {worklist ? (
+            <>
+              The cases this applies to, from what was last read from Clio.{" "}
+              <Link href="/" className="text-foreground underline underline-offset-2">
+                Show all cases
+              </Link>
+            </>
+          ) : (
+            "The matters in your Clio account. Open one to read its brief."
+          )}
+        </p>
       </div>
 
       {failure ? (
@@ -51,7 +71,9 @@ export default async function CasesPage() {
         </div>
       ) : matters.length === 0 ? (
         <p className="max-w-prose border-y py-5 text-sm text-muted-foreground">
-          Clio is connected, but the account has no matters. Open a matter in Clio and it will be listed here.
+          {worklist
+            ? "No case is on this list. That is as of the last read of Clio; open a case and press Check Clio to bring it up to date."
+            : "Clio is connected, but the account has no matters. Open a matter in Clio and it will be listed here."}
         </p>
       ) : (
         <Table>

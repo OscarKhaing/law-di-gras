@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { isFreshRead, type CaseFile } from "@/features/cases/schema";
+import { clioMatterUrl, isFreshRead, type CaseFile } from "@/features/cases/schema";
 import { LocalTime } from "@/features/cases/local-time";
 import { StageTrack } from "@/features/cases/stage-track";
 import { CheckClio, FreshReadLink } from "./read-case";
@@ -66,6 +66,14 @@ export function CaseHeader({
           Read from Clio <LocalTime iso={file.syncedAt} />
         </p>
         <CheckClio matterId={file.matterId} fingerprint={file.fingerprint} />
+        <a
+          href={clioMatterUrl(file.matterId)}
+          target="_blank"
+          rel="noreferrer"
+          className="block text-xs underline underline-offset-2 hover:text-foreground"
+        >
+          Open this matter in Clio
+        </a>
         {!isFreshRead(file.matterId) && <FreshReadLink matterId={file.matterId} />}
       </div>
     </header>

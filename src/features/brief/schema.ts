@@ -6,7 +6,7 @@
 // and `weight` are plain strings and are normalised in server.ts.
 
 import { z } from "zod";
-import { Evidence, type CaseFile } from "@/features/cases/schema";
+import { contactNamed, Evidence, overdue, type CaseFile, type CaseSummary } from "@/features/cases/schema";
 import type { ShareStatus } from "@/features/shares/schema";
 
 export const MONEY_KINDS = ["value", "coverage", "specials", "wage loss", "lien", "offer", "demand", "other"] as const;
@@ -143,3 +143,46 @@ export type SectionProps = {
 };
 
 export type IndexUsage = { model: string; documents: number; pages: number; inputTokens: number; outputTokens: number };
+
+// ---- Worklists: the cases that need something, for the sidebar and the case list ----
+
+export const WORKLISTS = [
+  { id: "overdue", label: "Overdue tasks" },
+  { id: "provider", label: "Waiting on a provider" },
+  { id: "other-side", label: "Waiting on the other side" },
+  { id: "limits", label: "Near policy limits" },
+  { id: "sol", label: "SOL within 90 days" },
+] as const;
+export type WorklistId = (typeof WORKLISTS)[number]["id"];
+
+/** Specials at or above this share of the coverage count as near the limits. */
+const NEAR_LIMITS = 0.8;
+const SOL_DAYS = 90;
+
+/** The worklists a case belongs on, from its file and its brief. Nothing here calls Clio or a model. */
+export function worklistsOf(file: CaseFile, brief: CheckedBrief | null, today: string): WorklistId[] {
+  const lists: WorklistId[] = [];
+  if (overdue(file, today).length > 0) lists.push("overdue");
+  if (brief) {
+    const treating = new Set(brief.people.filter((person) => person.treating).map((person) => person.contact));
+    if (brief.people.some((person) => person.treating && person.owes.trim() !== "")) lists.push("provider");
+    // Someone the firm is waiting on who is a contact on the case but neither the client nor a treating provider.
+    if (brief.waiting.some((item) => {
+      const contact = contactNamed(file, item.on);
+      return contact !== null && !treating.has(contact.ref);
+    })) lists.push("other-side");
+    const amounts = (kind: string) => brief.money.filter((figure) => figure.kind === kind && figure.amount > 0).map((figure) => figure.amount);
+    const coverage = Math.max(0, ...amounts("coverage"));
+    const specials = Math.max(0, ...amounts("specials"));
+    if (coverage > 0 && specials >= coverage * NEAR_LIMITS) lists.push("limits");
+  }
+  if (file.limitationDate) {
+    const days = Math.round((Date.parse(file.limitationDate) - Date.parse(today)) / 86_400_000);
+    if (days >= 0 && days <= SOL_DAYS) lists.push("sol");
+  }
+  return lists;
+}
+
+/** A case that has been read, with the worklists it is on. */
+export type ListedCase = CaseSummary & { lists: WorklistId[] };
+

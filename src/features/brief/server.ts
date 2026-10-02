@@ -1,11 +1,11 @@
 import { byRef, parseSource, type CaseFile, type Evidence } from "@/features/cases/schema";
-import { getCaseFile } from "@/features/cases/server";
+import { getCaseFile, listCases } from "@/features/cases/server";
 import type { PageNote } from "@/features/documents/schema";
 import { getPageNotes } from "@/features/documents/server";
 import { extract } from "@/server/llm";
 import { supabase } from "@/server/supabase";
 import { buildPrompt, SYSTEM } from "./prompt";
-import { Brief, LANES, MONEY_KINDS, type CheckedBrief, type CheckedEvidence, type StoredBrief } from "./schema";
+import { Brief, LANES, MONEY_KINDS, worklistsOf, type CheckedBrief, type CheckedEvidence, type ListedCase, type StoredBrief } from "./schema";
 
 // The brief is written once per state of the case in Clio and stored; opening a case reads it back.
 const MODEL = "claude-opus-5-5";
@@ -151,3 +151,19 @@ export async function buildBrief(matterId: number, signal?: AbortSignal) {
   };
   return { ...stored, tally };
 }
+
+/**
+ * Every case that has been read, with the worklists it is on (overdue, waiting on a provider, near
+ * its limits and so on). From the database only: it calls neither Clio nor a model.
+ */
+export async function listedCases(): Promise<ListedCase[]> {
+  const today = new Date().toISOString().slice(0, 10);
+  const cases = await listCases();
+  return Promise.all(
+    cases.map(async (summary) => {
+      const [file, stored] = await Promise.all([getCaseFile(summary.matterId), getBrief(summary.matterId)]);
+      return { ...summary, lists: file ? worklistsOf(file, stored?.brief ?? null, today) : [] };
+    }),
+  );
+}
+

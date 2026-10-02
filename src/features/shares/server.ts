@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { getBrief } from "@/features/brief/server";
-import { byRef, parseSource, type CaseFile, type Entry, type Evidence } from "@/features/cases/schema";
+import { byRef, fullNames, mentions, nameKeys, parseSource, type CaseFile, type Entry, type Evidence } from "@/features/cases/schema";
 import { getCaseFile } from "@/features/cases/server";
 import { getPageNotes } from "@/features/documents/server";
 import { extract } from "@/server/llm";
@@ -57,45 +57,7 @@ async function caseAndProvider(matterId: number, contactRef: string) {
 
 // ---- Which entries are about one provider ----
 
-/** Lower case words only, so "P.C." and "PC", or "Rivera's" and "Rivera", compare equal. */
-const words = (text: string) =>
-  text
-    .toLowerCase()
-    .replace(/\./g, "")
-    .replace(/[^\p{L}\p{N}]+/gu, " ")
-    .trim();
-
-// Titles and company forms that come and go when a name is written in a note or a subject line.
-const NAME_EXTRAS = new Set(["dr", "mr", "mrs", "ms", "md", "do", "dc", "dpm", "pt", "phd", "pllc", "llc", "llp", "pc", "pa", "inc", "corp", "ltd"]);
 const SHARED_MAIL = new Set(["gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "aol.com", "icloud.com"]);
-
-/** A contact's name as written in full: as Clio has it, and without titles and company forms. */
-function fullNames(contact: Entry): string[] {
-  const full = words(contact.title);
-  const core = full.split(" ").filter((word) => !NAME_EXTRAS.has(word)).join(" ");
-  return [...new Set([full, core])].filter(Boolean);
-}
-
-/** The ways a contact is written in the file: its full names and its short form. */
-function nameKeys(contact: Entry): string[] {
-  const names = fullNames(contact);
-  const core = (names.at(-1) ?? "").split(" ");
-  if (contact.facts.isCompany === true) {
-    // "Riverside Orthopaedic Associates, PLLC" is usually written "Riverside Orthopaedic".
-    const short = core.slice(0, 2).join(" ");
-    if (core.length > 2 && short.length >= 8) names.push(short);
-  } else {
-    // A person is usually written by surname: "Dr. Rivera's office".
-    const surname = core.at(-1) ?? "";
-    if (core.length > 1 && surname.length >= 4) names.push(surname);
-  }
-  return names;
-}
-
-const mentions = (text: string, keys: string[]) => {
-  const hay = ` ${words(text)} `;
-  return keys.some((key) => hay.includes(` ${key} `));
-};
 
 const mailDomain = (contact: Entry) => {
   const domain = String(contact.facts.email ?? "").split("@")[1]?.toLowerCase() ?? "";

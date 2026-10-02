@@ -160,3 +160,59 @@ export function shortDate(isoDate: string, year = false) {
   if (!isoDate || Number.isNaN(date.getTime())) return "";
   return (year ? dayMonthYear : dayMonth).format(date);
 }
+
+// ---- Telling who a line of the file is about, from the names of the contacts ----
+
+/** Lower case words only, so "P.C." and "PC", or "Rivera's" and "Rivera", compare equal. */
+export const nameWords = (text: string) =>
+  text
+    .toLowerCase()
+    .replace(/\./g, "")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+
+// Titles and company forms that come and go when a name is written in a note or a subject line.
+const NAME_EXTRAS = new Set(["dr", "mr", "mrs", "ms", "md", "do", "dc", "dpm", "pt", "phd", "pllc", "llc", "llp", "pc", "pa", "inc", "corp", "ltd"]);
+
+/** A contact's name as written in full: as Clio has it, and without titles and company forms. */
+export function fullNames(contact: Entry): string[] {
+  const full = nameWords(contact.title);
+  const core = full.split(" ").filter((word) => !NAME_EXTRAS.has(word)).join(" ");
+  return [...new Set([full, core])].filter(Boolean);
+}
+
+/** The ways a contact is written in the file: its full names and its short form. */
+export function nameKeys(contact: Entry): string[] {
+  const names = fullNames(contact);
+  const core = (names.at(-1) ?? "").split(" ");
+  if (contact.facts.isCompany === true) {
+    // "Riverside Orthopaedic Associates, PLLC" is usually written "Riverside Orthopaedic".
+    const short = core.slice(0, 2).join(" ");
+    if (core.length > 2 && short.length >= 8) names.push(short);
+  } else {
+    // A person is usually written by surname: "Dr. Rivera's office".
+    const surname = core.at(-1) ?? "";
+    if (core.length > 1 && surname.length >= 4) names.push(surname);
+  }
+  return names;
+}
+
+/** Whether a text names any of the keys, as whole words. */
+export const mentions = (text: string, keys: string[]) => {
+  const hay = ` ${nameWords(text)} `;
+  return keys.some((key) => hay.includes(` ${key} `));
+};
+
+/** The contact a text names, if any: the first whose name, in full or in its short form, appears in it. */
+export function contactNamed(file: CaseFile, text: string): Entry | null {
+  const contacts = file.entries.filter((entry) => entry.kind === "contact" && entry.facts.isClient !== true);
+  return (
+    contacts.find((contact) => mentions(text, fullNames(contact))) ??
+    contacts.find((contact) => mentions(text, nameKeys(contact))) ??
+    null
+  );
+}
+
+/** A link to the matter in Clio's own web app, for the reader to open in a new tab. Case Desk only reads Clio. */
+export const clioMatterUrl = (matterKey: number) => `https://app.clio.com/nc/#/matters/${clioMatterId(matterKey)}`;
+
