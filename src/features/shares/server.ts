@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { getBrief } from "@/features/brief/server";
 import { byRef, parseSource, type CaseFile, type Entry, type Evidence } from "@/features/cases/schema";
@@ -6,43 +6,32 @@ import { getCaseFile } from "@/features/cases/server";
 import { getPageNotes } from "@/features/documents/server";
 import { extract } from "@/server/llm";
 import { supabase } from "@/server/supabase";
+import { asReply, hashOf, ShareError } from "./link";
 import { buildPrompt, SYSTEM, type MaterialItem, type ProviderMaterial } from "./prompt";
 import {
   ATTORNEYS_CALL,
   ContactRef,
   DraftLines,
-  LineId,
   MatterId,
-  REPLY_LIMIT,
   SECTIONS,
   sectionOf,
-  ShareToken,
   UpdateDraft,
   type DraftLine,
   type ProviderUpdate,
-  type Reply,
   type ShareStatus,
 } from "./schema";
 
-// Updates shared with a treating provider. Two sides live in this file and must stay apart:
-// the firm's side (draftUpdate, publishShare, revokeShare, sharesFor, getDraft) reads the case;
-// the provider's side (getShareByToken, replyToShare) reads one row's `payload` and nothing else.
+// Updates shared with a treating provider: the firm's side. Everything here may read the case
+// (draftUpdate, publishShare, revokeShare, sharesFor, getDraft). The provider's side is link.ts,
+// which reads one share's published update and nothing else, and never imports this file.
+
+// The firm's routes answer a refused request the same way the provider's do.
+export { ShareError, shareErrorResponse } from "./link";
 
 const MODEL = "claude-sonnet-5-5";
 /** How long a new link works for. */
 export const LINK_DAYS = 30;
 const DAY_MS = 86_400_000;
-
-/** A request the firm or a provider made that cannot be carried out; `status` is the HTTP status to answer with. */
-export class ShareError extends Error {
-  constructor(
-    message: string,
-    readonly status = 400,
-  ) {
-    super(message);
-    this.name = "ShareError";
-  }
-}
 
 function valid<T extends z.ZodType>(schema: T, value: unknown, what: string): z.infer<T> {
   const parsed = schema.safeParse(value);
@@ -58,6 +47,11 @@ async function caseAndProvider(matterId: number, contactRef: string) {
   const contact = file.entries.find((entry) => entry.kind === "contact" && entry.ref === contactRef);
   if (!contact) throw new ShareError("That provider is not a contact on this case.", 404);
   if (contact.facts.isClient === true) throw new ShareError("An update is shared with a provider, not with the client.");
+  // The brief says who is treating the client. Once it is written, nobody else on the case (the
+  // other side, an insurer, a witness) can be drafted for or published to, whatever the screen shows.
+  const stored = await getBrief(matterId);
+  const treating = stored?.brief.people.some((person) => person.treating && parseSource(person.contact).ref === contactRef);
+  if (stored && !treating) throw new ShareError("An update goes only to an office that is treating the client.");
   return { file, contact };
 }
 
@@ -135,41 +129,52 @@ const newestFirst = (a: Entry, b: Entry) => b.date.localeCompare(a.date);
  * Everything the drafting model may read for one provider. This is an allowlist: an entry is
  * included because it is this provider's own business, never because it is in the file. Notes,
  * custom fields, the client's messages with the firm, expenses, and the brief's flags, decisions,
- * bottom line and value figures are never put in.
+ * bottom line and value figures are never put in. Of the firm's own working entries (tasks,
+ * calendar entries, notes of phone calls) only the heading and the date are put in.
  */
 async function materialFor(file: CaseFile, provider: Entry, today: string): Promise<ProviderMaterial> {
   const practice = practiceOf(file, provider);
   const inPractice = new Set(practice.map((entry) => entry.ref));
   const keys = [...new Set(practice.flatMap(nameKeys))];
-  const item = (entry: Entry, detail?: string): MaterialItem => ({
+  // The whole entry: only for what this office has itself read or written (its contact, its emails).
+  const whole = (entry: Entry, detail?: string): MaterialItem => ({
     ref: entry.ref,
     date: entry.date,
     title: entry.title,
     text: clip(entry.text),
     detail,
   });
+  // The heading alone. A task's description, a calendar entry's description and the firm's note of a
+  // phone call are written for the firm and can hold its reasoning, so the model is never shown them.
+  const headingOnly = (entry: Entry, detail: string): MaterialItem => ({ ref: entry.ref, date: entry.date, title: entry.title, text: "", detail });
+  // Named where the office is the subject: in the heading or among the people, not in the firm's description.
+  const named = (entry: Entry) => mentions(entry.title, keys) || entry.people.some((name) => mentions(name, keys));
 
   // A completed task counts as recent by the day it was due, or by the day it was closed when it had none.
   const recently = new Date(Date.parse(today) - 90 * DAY_MS).toISOString().slice(0, 10);
   const tasks = file.entries
-    .filter((entry) => entry.kind === "task" && mentions(`${entry.title} ${entry.text}`, keys))
+    .filter((entry) => entry.kind === "task" && named(entry))
     .filter((entry) => entry.facts.status !== "complete" || (entry.date || String(entry.facts.completedAt ?? "")).slice(0, 10) >= recently)
     .sort(newestFirst)
-    .map((entry) => item(entry, entry.facts.status === "complete" ? "A task the firm completed; the date is when it was due." : "An open task at the firm; the date is when it is due."));
+    .map((entry) => headingOnly(entry, entry.facts.status === "complete" ? "A task the firm completed; the date is when it was due." : "An open task at the firm; the date is when it is due."));
 
   // Only messages this office took part in. The client's own messages with the firm never qualify.
+  // An email is given in full, since the office has read it; of a phone call only the subject is given.
   const messages = file.entries
     .filter((entry) => (entry.kind === "email" || entry.kind === "call") && entry.people.some((name) => mentions(name, keys)))
     .filter((entry) => !entry.people.includes(file.client.name))
     .sort(newestFirst)
     .slice(0, 30)
-    .map((entry) => item(entry, `${entry.kind === "call" ? "Phone call" : "Email"} from ${entry.facts.from || "unknown"} to ${entry.facts.to || "unknown"}`));
+    .map((entry) => {
+      const between = `from ${entry.facts.from || "unknown"} to ${entry.facts.to || "unknown"}`;
+      return entry.kind === "call" ? headingOnly(entry, `Phone call ${between}; only its subject is given`) : whole(entry, `Email ${between}`);
+    });
 
   const calendar = file.entries
-    .filter((entry) => entry.kind === "event" && mentions(`${entry.title} ${entry.text} ${entry.people.join(" ")}`, keys))
+    .filter((entry) => entry.kind === "event" && named(entry))
     .sort(newestFirst)
     .slice(0, 20)
-    .map((entry) => item(entry, entry.date > today ? "On the firm's calendar, upcoming." : "On the firm's calendar, past."));
+    .map((entry) => headingOnly(entry, entry.date > today ? "On the firm's calendar, upcoming." : "On the firm's calendar, past."));
 
   // What the firm holds from this office, from the page index: kinds of pages and the dates they span.
   const entries = byRef(file);
@@ -202,7 +207,8 @@ async function materialFor(file: CaseFile, provider: Entry, today: string): Prom
       ref: sources(person.contact, person.evidence),
       date: "",
       title: entries.get(person.contact)!.title,
-      text: [person.role, person.did].filter(Boolean).join(". "),
+      // The kind of care only. What the brief says they did, found or billed is not this office's business.
+      text: person.role,
     }));
   const coverage = (stored?.brief.money ?? [])
     .filter((figure) => figure.kind === "coverage")
@@ -308,8 +314,6 @@ export function updateHead(file: CaseFile, contact: Entry): Pick<ProviderUpdate,
   };
 }
 
-const hashOf = (token: string) => createHash("sha256").update(token).digest("hex");
-
 /** The update currently live for a provider on a case: not withdrawn and not expired. */
 async function liveShare(matterId: number, contactRef: string) {
   const { data, error } = await supabase()
@@ -405,12 +409,6 @@ export async function getDraft(matterId: number, contactRef: string): Promise<Dr
 
 type EventRow = { share_id: string; kind: string; detail: { lineId?: unknown; text?: unknown } | null; at: string };
 
-const asReply = (row: Pick<EventRow, "detail" | "at">): Reply => ({
-  lineId: typeof row.detail?.lineId === "string" ? row.detail.lineId : null,
-  text: typeof row.detail?.text === "string" ? row.detail.text : "",
-  at: row.at,
-});
-
 /** Every update shared from a case, newest first, with how often it was opened and what came back. */
 export async function sharesFor(matterId: number): Promise<ShareStatus[]> {
   valid(MatterId, matterId, "The case number");
@@ -460,63 +458,4 @@ export async function publishedLines(matterId: number, contactRef: string): Prom
       (share.payload?.lines ?? []).map((line) => ({ id: line.id, text: line.text })),
     ]),
   );
-}
-
-// ---- The provider's side: the permission boundary ----
-// These two functions are all a link can reach. They read one row's `payload` and that row's
-// replies, by the hash of the token. They must never read the case file, the brief or the draft.
-
-async function findLive(token: string) {
-  if (!ShareToken.safeParse(token).success) return null;
-  const { data, error } = await supabase()
-    .from("shares")
-    .select("id, payload")
-    .eq("token_hash", hashOf(token))
-    .is("revoked_at", null)
-    .gt("expires_at", new Date().toISOString())
-    .maybeSingle();
-  if (error) throw error;
-  return data as { id: string; payload: ProviderUpdate } | null;
-}
-
-/**
- * What a provider's link shows: the published update and the replies already sent through it.
- * Null when the link is unknown, withdrawn or expired. Each call is recorded as the page being opened.
- */
-export async function getShareByToken(token: string): Promise<{ update: ProviderUpdate; replies: Reply[] } | null> {
-  const share = await findLive(token);
-  if (!share) return null;
-  const db = supabase();
-  const [opened, replies] = await Promise.all([
-    db.from("share_events").insert({ share_id: share.id, kind: "opened" }),
-    db.from("share_events").select("detail, at").eq("share_id", share.id).eq("kind", "replied").order("at", { ascending: true }),
-  ]);
-  // An open that could not be recorded should not keep the office from its update.
-  if (opened.error) console.error(`[shares] could not record an open: ${opened.error.message}`);
-  if (replies.error) throw replies.error;
-  return { update: share.payload, replies: (replies.data ?? []).map(asReply) };
-}
-
-/** Store what a provider's office wrote back to one line of its update. Nothing is written to Clio. */
-export async function replyToShare(token: string, lineId: string, text: string): Promise<{ at: string }> {
-  const share = await findLive(token);
-  if (!share) throw new ShareError("This link is no longer active. Ask the law firm for a new one.", 410);
-  valid(LineId, lineId, "The line you are replying to");
-  if (!share.payload.lines.some((line) => line.id === lineId)) throw new ShareError("That line is no longer part of this update. Reload the page.", 409);
-  const message = String(text ?? "").trim();
-  if (!message) throw new ShareError("Write a reply before sending.");
-  if (message.length > REPLY_LIMIT) throw new ShareError(`A reply can be at most ${REPLY_LIMIT.toLocaleString("en-US")} characters.`);
-  const { data, error } = await supabase()
-    .from("share_events")
-    .insert({ share_id: share.id, kind: "replied", detail: { lineId, text: message } })
-    .select("at")
-    .single();
-  if (error) throw error;
-  return { at: data.at as string };
-}
-
-/** The response for a ShareError, in the shape every API error has; null for any other error. */
-export function shareErrorResponse(err: unknown): Response | null {
-  if (!(err instanceof ShareError)) return null;
-  return Response.json({ error: { type: "invalid_request", message: err.message } }, { status: err.status });
 }

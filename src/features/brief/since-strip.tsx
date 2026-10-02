@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { changedSince, shortDate, type CaseFile, type Entry, type EntryKind } from "@/features/cases/schema";
-import { addDays } from "@/features/cases/words";
+import { KIND_WORD, addDays } from "@/features/cases/words";
 import { postJson } from "@/lib/fetch-json";
 import { cn } from "@/lib/utils";
 import { useSource } from "./source-panel";
@@ -11,16 +11,17 @@ import { useSource } from "./source-panel";
 type Visit = { status: "checking" } | { status: "known"; previous: string | null } | { status: "failed"; message: string };
 type Range = "visit" | 30 | 90;
 
-const GROUPS: { kind: EntryKind; label: string }[] = [
-  { kind: "note", label: "Notes" },
-  { kind: "email", label: "Emails" },
-  { kind: "call", label: "Calls" },
-  { kind: "task", label: "Tasks" },
-  { kind: "event", label: "Calendar" },
-  { kind: "expense", label: "Expenses" },
-  { kind: "document", label: "Documents" },
+/** Each kind as it is counted: "1 note", "12 notes". */
+const GROUPS: { kind: EntryKind; one: string; many: string }[] = [
+  { kind: "note", one: "note", many: "notes" },
+  { kind: "email", one: "email", many: "emails" },
+  { kind: "call", one: "call", many: "calls" },
+  { kind: "task", one: "task", many: "tasks" },
+  { kind: "event", one: "calendar entry", many: "calendar entries" },
+  { kind: "expense", one: "expense", many: "expenses" },
+  { kind: "document", one: "document", many: "documents" },
 ];
-const FIRST = 3;
+const FIRST = 5;
 
 /** An id for this browser, so "since you last opened" is about this reader. There is no sign-in. */
 function viewerId() {
@@ -51,7 +52,7 @@ export function SinceStrip({ file, today }: { file: CaseFile; today: string }) {
   const { openRef } = useSource();
   const [visit, setVisit] = useState<Visit>({ status: "checking" });
   const [chosen, setChosen] = useState<Range | null>(null);
-  const [expanded, setExpanded] = useState<EntryKind[]>([]);
+  const [all, setAll] = useState(false);
   const asked = useRef(false);
 
   useEffect(() => {
@@ -85,15 +86,18 @@ export function SinceStrip({ file, today }: { file: CaseFile; today: string }) {
     const cutoff = addDays(today, -(range === "visit" ? 30 : range));
     fresh = changedSince(file, cutoff).filter((entry) => entry.date > cutoff && entry.date <= today);
   }
-  const groups = GROUPS.map((group) => ({ ...group, entries: fresh.filter((entry) => entry.kind === group.kind) })).filter(
-    (group) => group.entries.length > 0,
-  );
+  // One line of counts, then the newest few of any kind (`changedSince` gives them newest first).
+  const counts = GROUPS.map((group) => {
+    const count = fresh.filter((entry) => entry.kind === group.kind).length;
+    return count > 0 ? `${count} ${count === 1 ? group.one : group.many}` : "";
+  }).filter(Boolean);
+  const shown = all ? fresh : fresh.slice(0, FIRST);
 
   const days = range === "visit" ? 30 : range;
   const sinceVisit = range === "visit" && previous ? whenOpened(previous, today) : null;
   // With nothing to list, the heading itself says so.
   const heading =
-    groups.length === 0
+    fresh.length === 0
       ? sinceVisit
         ? `Nothing new in Clio since you last opened ${sinceVisit}`
         : `Nothing in the file is dated in the last ${days} days`
@@ -110,7 +114,7 @@ export function SinceStrip({ file, today }: { file: CaseFile; today: string }) {
     <section aria-labelledby="since-heading" className="border-l-2 border-marker">
       <div className="bg-marker-soft px-4 py-2.5">
         <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
-          <h2 id="since-heading" className="font-heading text-lg font-semibold tracking-tight">
+          <h2 id="since-heading" className="font-heading text-lg leading-snug font-semibold tracking-tight">
             {heading}
           </h2>
           <div role="group" aria-label="Period to show" className="flex gap-3 text-xs">
@@ -122,7 +126,7 @@ export function SinceStrip({ file, today }: { file: CaseFile; today: string }) {
                 disabled={option.off}
                 onClick={() => {
                   setChosen(option.value);
-                  setExpanded([]);
+                  setAll(false);
                 }}
                 className={cn(
                   "cursor-pointer border-b pb-0.5 outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-default disabled:opacity-50",
@@ -149,48 +153,37 @@ export function SinceStrip({ file, today }: { file: CaseFile; today: string }) {
         )}
       </div>
 
-      {groups.length > 0 && (
-        <div className="divide-y border-b pl-4">
-          {groups.map((group) => {
-            const all = expanded.includes(group.kind);
-            const shown = all ? group.entries : group.entries.slice(0, FIRST);
-            return (
-              <div key={group.kind} className="grid gap-x-6 py-2 sm:grid-cols-[8.5rem_minmax(0,1fr)]">
-                <h3 className="text-sm">
-                  {group.label}
-                  <span className="ml-1.5 text-muted-foreground tabular-nums">{group.entries.length}</span>
-                </h3>
-                <ul className="min-w-0 space-y-1">
-                  {shown.map((entry) => (
-                    <li key={entry.ref} className="grid grid-cols-[3.25rem_minmax(0,1fr)] gap-x-2">
-                      <span className="pt-px text-xs leading-5 text-muted-foreground tabular-nums">{shortDate(entry.date)}</span>
-                      <button
-                        type="button"
-                        onClick={() => openRef(entry.ref)}
-                        className="cursor-pointer justify-self-start rounded-sm text-left font-serif text-sm leading-5 underline decoration-input underline-offset-2 outline-none hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
-                      >
-                        {entry.title || "Untitled"}
-                      </button>
-                    </li>
-                  ))}
-                  {group.entries.length > FIRST && (
-                    <li className="pl-[3.75rem]">
-                      <button
-                        type="button"
-                        aria-expanded={all}
-                        onClick={() =>
-                          setExpanded((kinds) => (all ? kinds.filter((kind) => kind !== group.kind) : [...kinds, group.kind]))
-                        }
-                        className="cursor-pointer rounded-sm text-xs text-muted-foreground underline decoration-input underline-offset-2 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
-                      >
-                        {all ? "Show fewer" : `Show ${group.entries.length - FIRST} more`}
-                      </button>
-                    </li>
-                  )}
-                </ul>
-              </div>
-            );
-          })}
+      {fresh.length > 0 && (
+        <div className="border-b pl-4">
+          <p className="py-2 text-sm">{counts.join(", ")}</p>
+          <ul className={cn("divide-y border-t", all && "max-h-80 overflow-y-auto")}>
+            {shown.map((entry) => (
+              <li key={entry.ref} className="grid grid-cols-[3.25rem_4rem_minmax(0,1fr)] items-baseline gap-x-2 py-1">
+                <span className="text-xs text-muted-foreground tabular-nums">{shortDate(entry.date)}</span>
+                <span className="text-xs text-muted-foreground">{KIND_WORD[entry.kind]}</span>
+                <button
+                  type="button"
+                  title={entry.title}
+                  onClick={() => openRef(entry.ref)}
+                  className="cursor-pointer truncate rounded-sm text-left font-serif text-sm leading-5 underline decoration-input underline-offset-2 outline-none hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+                >
+                  {entry.title || "Untitled"}
+                </button>
+              </li>
+            ))}
+          </ul>
+          {fresh.length > FIRST && (
+            <p className="border-t py-1.5">
+              <button
+                type="button"
+                aria-expanded={all}
+                onClick={() => setAll(!all)}
+                className="cursor-pointer rounded-sm text-sm font-medium text-primary underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/50"
+              >
+                {all ? `Show the newest ${FIRST}` : `Show all ${fresh.length}`}
+              </button>
+            </p>
+          )}
         </div>
       )}
     </section>

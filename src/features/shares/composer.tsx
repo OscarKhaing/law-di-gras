@@ -49,6 +49,9 @@ type LinkShown = { url: string; expiresAt: string; copied: boolean };
 const OWN = "own-";
 const MAX_LINES = 80;
 const MAX_LENGTH = 1000;
+/** A section of more than FOLD_OVER lines, all switched off, shows FOLD_TO of them until it is opened out. */
+const FOLD_OVER = 4;
+const FOLD_TO = 3;
 
 const isOwn = (line: DraftLine) => line.id.startsWith(OWN);
 const isBlank = (line: DraftLine) => line.text.trim() === "";
@@ -70,6 +73,8 @@ export function Composer({ matterId, contactRef, providerName, head, storedDraft
   /** Counts drafts that landed in this visit; the ledger arrives with a movement only then. */
   const [arrived, setArrived] = useState(0);
   const [focusId, setFocusId] = useState<string | null>(null);
+  /** Sections whose long run of switched-off lines has been opened out. */
+  const [opened, setOpened] = useState<Section[]>([]);
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [fresh, setFresh] = useState<Fresh | null>(null);
@@ -309,6 +314,9 @@ export function Composer({ matterId, contactRef, providerName, head, storedDraft
             >
               {SECTIONS.map((section) => {
                 const mine = lines.filter((line) => sectionOf(line.section) === section);
+                // A long section with every line switched off shows its first lines; nothing hidden can be shared.
+                const folded = mine.length > FOLD_OVER && mine.every((line) => !line.share) && !opened.includes(section);
+                const shown = folded ? mine.slice(0, FOLD_TO) : mine;
                 return (
                   <div key={section} className="grid gap-x-6 gap-y-1 border-t py-3 @xl:grid-cols-[9.5rem_minmax(0,1fr)]">
                     <h3 className="text-sm leading-snug font-medium @xl:pt-3">{SECTION_HEADINGS[section]}</h3>
@@ -317,7 +325,7 @@ export function Composer({ matterId, contactRef, providerName, head, storedDraft
                         <p className="pt-3 pb-1 text-sm text-muted-foreground">No line here.</p>
                       ) : (
                         <ul className="divide-y">
-                          {mine.map((line) => (
+                          {shown.map((line) => (
                             <LineRow
                               key={line.id}
                               line={line}
@@ -330,6 +338,14 @@ export function Composer({ matterId, contactRef, providerName, head, storedDraft
                             />
                           ))}
                         </ul>
+                      )}
+                      {folded && (
+                        <p className="border-t py-2 pl-12 text-xs text-muted-foreground">
+                          {mine.length - FOLD_TO} more lines here, all kept in the firm.{" "}
+                          <button type="button" className={linkClass} onClick={() => setOpened((list) => [...list, section])}>
+                            Show all {mine.length}
+                          </button>
+                        </p>
                       )}
                       <Button
                         variant="ghost"
@@ -347,15 +363,9 @@ export function Composer({ matterId, contactRef, providerName, head, storedDraft
             </div>
           </section>
 
+          {/* The one action comes first in the column, so it is on screen however long the preview is. */}
           <aside aria-labelledby="preview-heading" className="flex min-w-0 flex-col gap-3 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)]">
-            <h2 id="preview-heading" className="font-heading text-xl font-semibold tracking-tight text-balance">
-              What {providerName} will see
-            </h2>
-            <div className="min-h-48 overflow-y-auto rounded-md border bg-card px-5 py-6">
-              <ProviderUpdateView update={update} replies={live?.replies ?? []} preview />
-            </div>
-
-            <div className="space-y-2.5">
+            <div className="space-y-2.5 border-b pb-4">
               <p className="text-sm leading-relaxed">
                 {shared.length === 0
                   ? "Nothing to share: every line is switched off or empty. Switch on at least one line to publish."
@@ -421,6 +431,12 @@ export function Composer({ matterId, contactRef, providerName, head, storedDraft
                   {copyFailed && <p className="text-xs">The browser would not copy it. Select the link above and copy it by hand.</p>}
                 </div>
               )}
+            </div>
+            <h2 id="preview-heading" className="font-heading text-xl font-semibold tracking-tight text-balance">
+              What {providerName} will see
+            </h2>
+            <div className="min-h-48 overflow-y-auto rounded-md border bg-card px-5 py-6">
+              <ProviderUpdateView update={update} replies={live?.replies ?? []} preview />
             </div>
           </aside>
         </div>

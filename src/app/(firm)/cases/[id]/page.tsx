@@ -50,7 +50,7 @@ export default async function CasePage({ params }: PageProps<"/cases/[id]">) {
   const today = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 pb-16">
+    <div className="mx-auto max-w-6xl space-y-6 pb-16">
       <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">
         <Link href="/" className="hover:text-foreground hover:underline">
           Cases
@@ -63,7 +63,7 @@ export default async function CasePage({ params }: PageProps<"/cases/[id]">) {
           <p className="font-medium text-destructive">This case could not be opened</p>
           <p className="mt-1">{failure}</p>
           <p className="mt-1 text-muted-foreground">
-            Nothing was lost. Reload the page; if it fails again, see whether the database answers under Connection checks.
+            Nothing was lost. Reload the page. If it fails again, the database is not answering: wait a minute and reload.
           </p>
         </div>
       ) : !loaded.file ? (

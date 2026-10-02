@@ -1,5 +1,8 @@
+"use client";
+
 import { byRef, parseSource } from "@/features/cases/schema";
 import { cn } from "@/lib/utils";
+import { useFold } from "./fold";
 import type { SectionProps } from "./schema";
 import { SourceLinks } from "./source-panel";
 
@@ -16,27 +19,30 @@ function weightOf(raw: string): Weight {
 
 /**
  * Red flags: weaknesses, contradictions inside the file and things nobody has done, heaviest first.
- * Flags of the same weight share a ledger row. The passages a flag rests on are set one under the
- * other in the marker, so the two sides of a contradiction can be read against each other.
+ * One ledger row each: what is wrong on the left, and on the right the passages it rests on, one
+ * under the other in the marker, so the two sides of a contradiction can be read against each other.
+ * This is one of the two places where passages are written out on the brief.
  */
 export function Flags({ file, stored }: SectionProps) {
-  const flags = stored.brief.flags;
   const entries = byRef(file);
-  const groups = WEIGHTS.map((weight) => ({
-    weight,
-    flags: flags.filter((flag) => weightOf(flag.weight) === weight),
-  })).filter((group) => group.flags.length > 0);
+  const rank = (raw: string) => WEIGHTS.indexOf(weightOf(raw));
+  // Stable: flags of one weight keep the order the brief gave them.
+  const flags = [...stored.brief.flags].sort((a, b) => rank(a.weight) - rank(b.weight));
+  const { shown, control } = useFold(flags);
+  const counts = WEIGHTS.map((weight) => {
+    const count = flags.filter((flag) => weightOf(flag.weight) === weight).length;
+    return count > 0 ? `${count} ${LABEL[weight].toLowerCase()}` : "";
+  }).filter(Boolean);
 
   return (
     <section aria-labelledby="red-flags" className="space-y-3">
-      <div className="space-y-1">
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
         <h2 id="red-flags" className="font-heading text-xl font-semibold tracking-tight">
           Red flags
         </h2>
         {flags.length > 0 && (
-          <p className="max-w-prose text-sm text-muted-foreground">
-            Weaknesses, contradictions inside the file and things nobody has done, heaviest first. Select a passage to
-            read it where it was written.
+          <p className="text-sm text-muted-foreground">
+            Heaviest first: {counts.join(", ")}. Select a passage to read it where it was written.
           </p>
         )}
       </div>
@@ -44,54 +50,34 @@ export function Flags({ file, stored }: SectionProps) {
       {flags.length === 0 ? (
         <p className="border-y py-3 text-sm text-muted-foreground">The brief raises no red flags on this case.</p>
       ) : (
-        <div className="divide-y border-y">
-          {groups.map((group) => (
-            <div key={group.weight} className="grid gap-x-6 gap-y-2 py-4 sm:grid-cols-[7.5rem_minmax(0,1fr)]">
-              <h3 className="flex items-center gap-2 self-start text-sm sm:pt-0.5">
-                <WeightMark weight={group.weight} />
-                <span className={group.weight === "high" ? "font-semibold" : "font-medium text-muted-foreground"}>
-                  {LABEL[group.weight]}
-                </span>
-                <span className="text-muted-foreground">{group.flags.length}</span>
-              </h3>
-              <ul className="space-y-5">
-                {group.flags.map((flag, index) => (
-                  <li key={index} className="space-y-1.5">
-                    <h4
-                      className={cn(
-                        "text-pretty",
-                        group.weight === "high" && "text-[17px] leading-snug font-semibold",
-                        group.weight === "medium" && "text-[15px] leading-snug font-medium",
-                        group.weight === "low" && "text-sm",
-                      )}
-                    >
-                      {flag.title}
-                    </h4>
-                    {flag.detail && (
-                      <p
-                        className={cn(
-                          "max-w-prose text-sm leading-relaxed",
-                          group.weight === "low" && "text-muted-foreground",
-                        )}
-                      >
-                        {flag.detail}
-                      </p>
-                    )}
-                    {flag.evidence.some((item) => entries.has(parseSource(item.source).ref)) ? (
-                      // One passage under the other, each with its source, tied together by a marker rule.
-                      <div className="mt-2 max-w-prose border-l-2 border-marker pl-3 [&_mark]:text-[15px]">
-                        <SourceLinks evidence={flag.evidence} />
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">The brief gives no source for this.</p>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
+        <ul className="divide-y border-y">
+          {shown.map((flag, index) => {
+            const weight = weightOf(flag.weight);
+            return (
+              <li key={index} className="grid gap-x-8 gap-y-2 py-2.5 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+                <div className="space-y-1">
+                  <h3 className="flex items-baseline gap-2 text-[15px] leading-snug font-semibold text-pretty">
+                    <span className="shrink-0" title={`${LABEL[weight]} weight`}>
+                      <WeightMark weight={weight} />
+                      <span className="sr-only">{LABEL[weight]} weight: </span>
+                    </span>
+                    {flag.title}
+                  </h3>
+                  {flag.detail && <p className="text-sm leading-5">{flag.detail}</p>}
+                </div>
+                {flag.evidence.some((item) => entries.has(parseSource(item.source).ref)) ? (
+                  <div className="self-start border-l-2 border-marker pl-3">
+                    <SourceLinks evidence={flag.evidence} quotes />
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">The brief gives no source for this.</p>
+                )}
+              </li>
+            );
+          })}
+        </ul>
       )}
+      {control}
     </section>
   );
 }
@@ -100,7 +86,7 @@ export function Flags({ file, stored }: SectionProps) {
 function WeightMark({ weight }: { weight: Weight }) {
   const filled = weight === "high" ? 3 : weight === "medium" ? 2 : 1;
   return (
-    <span aria-hidden className="flex items-end gap-0.5">
+    <span aria-hidden className="inline-flex items-end gap-0.5">
       {[1, 2, 3].map((bar) => (
         <span
           key={bar}

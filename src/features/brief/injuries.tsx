@@ -1,4 +1,7 @@
+"use client";
+
 import { byRef, parseSource } from "@/features/cases/schema";
+import { useFold } from "./fold";
 import type { SectionProps } from "./schema";
 import { SourceLinks } from "./source-panel";
 
@@ -9,41 +12,38 @@ import { SourceLinks } from "./source-panel";
 export function Injuries({ file, stored }: SectionProps) {
   const injuries = stored.brief.injuries;
   const entries = byRef(file);
+  const { shown, control } = useFold(injuries);
 
   return (
     <section aria-labelledby="injuries" className="space-y-3">
-      <div className="space-y-1">
-        <h2 id="injuries" className="font-heading text-xl font-semibold tracking-tight">
-          Injuries
-        </h2>
-        {injuries.length > 0 && (
-          <p className="text-sm text-muted-foreground">Most serious first, with where treatment stands.</p>
-        )}
-      </div>
+      <h2 id="injuries" className="font-heading text-xl font-semibold tracking-tight">
+        Injuries, most serious first
+      </h2>
 
       {injuries.length === 0 ? (
         <p className="border-y py-3 text-sm text-muted-foreground">The brief names no injuries for this case.</p>
       ) : (
         <dl className="divide-y border-y">
-          {injuries.map((item, index) => (
-            <div key={index} className="grid gap-x-6 gap-y-1 py-3 sm:grid-cols-[minmax(0,17rem)_minmax(0,1fr)]">
-              <dt className="font-serif text-[17px] leading-snug text-pretty">{item.injury}</dt>
-              <dd className="space-y-1">
+          {shown.map((item, index) => (
+            <div key={index} className="py-1.5">
+              <dt className="font-serif text-[15px] leading-snug text-pretty">{item.injury}</dt>
+              <dd className="text-sm leading-5">
                 {item.state ? (
-                  <p className="max-w-prose text-sm leading-relaxed">{item.state}</p>
+                  <>{item.state} </>
                 ) : (
-                  <p className="text-sm text-muted-foreground">The file does not say where treatment stands.</p>
+                  <span className="text-muted-foreground">The file does not say where treatment stands. </span>
                 )}
                 {item.evidence.some((source) => entries.has(parseSource(source.source).ref)) ? (
                   <SourceLinks evidence={item.evidence} />
                 ) : (
-                  <p className="text-xs text-muted-foreground">The brief gives no source for this.</p>
+                  <span className="text-xs text-muted-foreground">The brief gives no source for this.</span>
                 )}
               </dd>
             </div>
           ))}
         </dl>
       )}
+      {control}
     </section>
   );
 }

@@ -12,8 +12,20 @@ function initials(name: string) {
 /**
  * The top of a case: who the client is, the matter, where it stands among Clio's stages, and when
  * it was last read from Clio. `children` is the line under the name: what happened to the client.
+ * The date of the incident is written here once, so no section below repeats it.
  */
-export function CaseHeader({ file, photoUrl, children }: { file: CaseFile; photoUrl: string | null; children?: ReactNode }) {
+export function CaseHeader({
+  file,
+  photoUrl,
+  incident,
+  children,
+}: {
+  file: CaseFile;
+  photoUrl: string | null;
+  /** When it happened, in words: "Apr 3, 2024, 2 years ago". Written after the matter number. */
+  incident?: string;
+  children?: ReactNode;
+}) {
   return (
     <header className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
@@ -39,6 +51,7 @@ export function CaseHeader({ file, photoUrl, children }: { file: CaseFile; photo
             <p className="text-sm text-muted-foreground">
               Matter {file.number}
               {file.practiceArea ? `, ${file.practiceArea.toLowerCase()}` : ""}
+              {incident ? `. Incident ${incident}.` : ""}
             </p>
             {children}
           </div>

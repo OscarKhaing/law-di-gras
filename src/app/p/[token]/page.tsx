@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import { ProviderUpdateView } from "@/features/shares/provider-update-view";
-import { getShareByToken } from "@/features/shares/server";
+import { getShareByToken } from "@/features/shares/link";
 
 // The provider's page: what one treating provider's office sees through its link. It has no
-// sidebar, and it reads nothing but the update published to this token: getShareByToken is the
-// permission boundary, and this page imports nothing else that can reach the case.
+// sidebar, and it reads nothing but the update published to this token. getShareByToken is the
+// permission boundary: it lives in link.ts, which cannot read the case file, the brief or the
+// draft, and this page imports nothing from the firm's side (server.ts).
 
 export const dynamic = "force-dynamic";
 

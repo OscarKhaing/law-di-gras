@@ -35,7 +35,7 @@ const MORE_OF: Record<Kind, string> = {
 };
 
 // Every row has the same three columns, so the bars and the coverage lines share one dollar scale.
-const ROW = "grid grid-cols-[9rem_minmax(0,1fr)_5.5rem] gap-x-4 sm:grid-cols-[20rem_minmax(0,1fr)_7.5rem] sm:gap-x-6";
+const ROW = "grid grid-cols-[9rem_minmax(0,1fr)_5.5rem] gap-x-4 sm:grid-cols-[17rem_minmax(0,1fr)_6.5rem] sm:gap-x-5";
 /** The height of one label where the coverage lines begin. */
 const HEAD = 24;
 
@@ -94,16 +94,15 @@ export function Money({ file, stored }: SectionProps) {
 
   return (
     <section aria-labelledby="worth-and-coverage" className="space-y-3">
-      <div className="space-y-1">
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
         <h2 id="worth-and-coverage" className="font-heading text-xl font-semibold tracking-tight">
           Worth and coverage
         </h2>
         {figures.length > 0 && (
-          <p className="max-w-prose text-sm text-muted-foreground">
-            Every figure on one dollar scale.{" "}
+          <p className="text-sm text-muted-foreground">
             {limit
-              ? "Each marked line is a coverage limit: a bar that runs past it is more than that coverage pays."
-              : "The brief gives no coverage figure, so there is no limit to hold the others against."}
+              ? `One dollar scale. ${lines.length === 1 ? "The marked line is the coverage limit" : "Each marked line is a coverage limit"}: a bar that runs past it is more than that coverage pays.`
+              : "One dollar scale. The brief gives no coverage figure, so there is no limit to hold the others against."}
           </p>
         )}
       </div>
@@ -126,23 +125,15 @@ export function Money({ file, stored }: SectionProps) {
                 const cutShort = figure.amount > top;
                 const row = (
                   <li key={`${kind}-${index}`} className={cn(ROW, "border-t first:border-t-0")}>
-                    <Label figure={figure}>
-                      {limit && beyond > 0 && (
-                        <p className="text-xs">
-                          <span className="bg-marker box-decoration-clone px-0.5">
-                            {dollars(beyond)} beyond {lines.length === 1 ? "the limit" : limit.label}
-                          </span>
-                        </p>
-                      )}
-                      {cutShort && <p className="text-xs text-muted-foreground">Drawn cut short: it runs off this scale.</p>}
-                    </Label>
+                    <Label figure={figure} />
                     <div className="relative border-l border-input">
+                      <Lines lines={lines} />
                       {figure.amount > 0 && (
                         <div
                           role="img"
                           aria-label={describe(figure, limit) + (cutShort ? ", drawn cut short" : "")}
                           className={cn(
-                            "absolute top-4 left-0 h-3 min-w-0.5",
+                            "absolute top-2 left-0 h-3 min-w-0.5",
                             !cutShort && "rounded-r-[3px]",
                             kind === "value" ? "bg-foreground" : "bg-foreground/45",
                           )}
@@ -157,7 +148,14 @@ export function Money({ file, stored }: SectionProps) {
                           )}
                         </div>
                       )}
-                      <Lines lines={lines} />
+                      <Caveat figure={figure}>
+                        {limit && beyond > 0 && (
+                          <span className="bg-marker box-decoration-clone px-0.5 text-foreground">
+                            {dollars(beyond)} beyond {lines.length === 1 ? "the limit" : limit.label}
+                          </span>
+                        )}
+                        {cutShort && " Drawn cut short: it runs off this scale."}
+                      </Caveat>
                     </div>
                     <Amount amount={figure.amount} />
                   </li>
@@ -197,10 +195,11 @@ export function Money({ file, stored }: SectionProps) {
                   {figure.amount > 0 && (
                     <span
                       aria-hidden
-                      className="absolute top-[22px] size-2.5 -translate-1/2 rounded-full border border-foreground/70 bg-marker"
+                      className="absolute top-3.5 size-2.5 -translate-1/2 rounded-full border border-foreground/70 bg-marker"
                       style={{ left: `${at(figure.amount)}%` }}
                     />
                   )}
+                  <Caveat figure={figure} />
                 </div>
                 <Amount amount={figure.amount} />
               </li>
@@ -224,28 +223,30 @@ function describe(figure: Figure, limit: Figure | null) {
   return `${amount}, ${Math.round((figure.amount / limit.amount) * 100)}% of the ${against}`;
 }
 
-/** The left column of a row: what the figure is, any caveat the file attaches to it, and its sources. */
-function Label({ figure, children }: { figure: Figure; children?: ReactNode }) {
+/** The left column of a row: what the figure is. */
+function Label({ figure }: { figure: Figure }) {
+  return <h3 className="py-2 text-sm leading-5 font-medium text-pretty">{figure.label}</h3>;
+}
+
+/** Under a bar: how far it runs past the coverage, any caveat the file attaches to it, and its sources. */
+function Caveat({ figure, children }: { figure: Figure; children?: ReactNode }) {
   return (
-    <div className="space-y-1 py-3">
-      <h3 className="text-sm leading-5 font-medium text-pretty">{figure.label}</h3>
+    <p className="relative pt-6 pb-1.5 pl-2 text-xs leading-4 text-muted-foreground">
       {children}
-      {figure.note && <p className="text-xs leading-relaxed text-muted-foreground">{figure.note}</p>}
-      {figure.evidence.length > 0 ? (
-        <SourceLinks evidence={figure.evidence} />
-      ) : (
-        <p className="text-xs text-muted-foreground">The brief gives no source for this.</p>
-      )}
-    </div>
+      {children && " "}
+      {figure.note}
+      {figure.note && " "}
+      {figure.evidence.length > 0 ? <SourceLinks evidence={figure.evidence} /> : "The brief gives no source for this."}
+    </p>
   );
 }
 
 /** The right column of a row: the amount as the file gives it. Zero means the file does not say. */
 function Amount({ amount }: { amount: number }) {
   return amount > 0 ? (
-    <p className="py-3 text-right font-serif text-[15px] leading-5 tabular-nums">{dollars(amount)}</p>
+    <p className="py-2 text-right font-serif text-[15px] leading-5 tabular-nums">{dollars(amount)}</p>
   ) : (
-    <p className="py-3 text-right text-sm leading-5 text-muted-foreground">Not stated</p>
+    <p className="py-2 text-right text-sm leading-5 text-muted-foreground">Not stated</p>
   );
 }
 
@@ -287,7 +288,7 @@ function LineHeads({ lines }: { lines: Line[] }) {
               />
               <p
                 className={cn(
-                  "absolute flex max-w-[calc(var(--at)+8rem)] items-baseline gap-1.5 px-1 leading-5 sm:max-w-[calc(var(--at)+19rem)]",
+                  "absolute flex max-w-[calc(var(--at)+8rem)] items-baseline gap-1.5 px-1 leading-5 sm:max-w-[calc(var(--at)+16rem)]",
                   line.strong ? "bg-marker" : "bg-marker/45",
                 )}
                 style={

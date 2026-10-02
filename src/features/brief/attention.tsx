@@ -1,41 +1,54 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { overdue, shortDate, upcoming, type Entry } from "@/features/cases/schema";
+import { overdue, shortDate, upcoming } from "@/features/cases/schema";
 import { KIND_WORD, addDays, daysBetween, fromToday, span } from "@/features/cases/words";
+import { useFold } from "./fold";
 import type { SectionProps } from "./schema";
 import { SourceLinks, useSource } from "./source-panel";
 
 const AHEAD = 30;
 
 const openClass =
-  "cursor-pointer rounded-sm text-left font-serif text-[15px] leading-snug underline decoration-input underline-offset-2 outline-none hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring/50";
+  "max-w-full cursor-pointer truncate rounded-sm text-left align-bottom font-serif text-[15px] leading-6 underline decoration-input underline-offset-2 outline-none hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring/50";
 
-function Row({ label, count, children }: { label: string; count: number; children: ReactNode }) {
+/** One of the four ledgers: its name and count, then one line per item, the first five until asked. */
+function Ledger<T>({
+  label,
+  items,
+  empty,
+  render,
+}: {
+  label: string;
+  items: T[];
+  empty: string;
+  render: (item: T) => ReactNode;
+}) {
+  const { shown, control } = useFold(items);
   return (
-    <div className="grid gap-x-6 gap-y-1 border-t py-3 sm:grid-cols-[10rem_minmax(0,1fr)]">
+    <div className="min-w-0 border-t py-2.5">
       <h3 className="text-sm font-medium">
         {label}
-        {count > 0 && <span className="ml-1.5 font-normal text-muted-foreground tabular-nums">{count}</span>}
+        {items.length > 0 && <span className="ml-1.5 font-normal text-muted-foreground tabular-nums">{items.length}</span>}
       </h3>
-      <div className="min-w-0">{children}</div>
+      {items.length === 0 ? (
+        <p className="mt-1 text-sm text-muted-foreground">{empty}</p>
+      ) : (
+        <ul className="mt-1 divide-y">
+          {shown.map((item, index) => (
+            <li key={index} className="py-1.5">
+              {render(item)}
+            </li>
+          ))}
+        </ul>
+      )}
+      {control && <p className="pt-1">{control}</p>}
     </div>
   );
 }
 
-const Nothing = ({ children }: { children: ReactNode }) => <p className="text-sm text-muted-foreground">{children}</p>;
-
-function Items<T>({ items, render }: { items: T[]; render: (item: T) => ReactNode }) {
-  return (
-    <ul className="max-w-[46rem] space-y-2.5">
-      {items.map((item, index) => (
-        <li key={index} className="space-y-0.5">
-          {render(item)}
-        </li>
-      ))}
-    </ul>
-  );
-}
+const lineClass = "grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3";
+const asideClass = "text-xs whitespace-nowrap text-muted-foreground";
 
 /** What is late, what is coming, what the firm is waiting for and what the attorney has to decide. */
 export function Attention({ file, stored, today }: SectionProps) {
@@ -43,102 +56,81 @@ export function Attention({ file, stored, today }: SectionProps) {
   const { brief } = stored;
   const late = overdue(file, today);
   const coming = upcoming(file, today, addDays(today, AHEAD));
-  const withPeople = (entry: Entry) => (entry.people.length ? `, ${entry.people.join(", ")}` : "");
 
   return (
     <section aria-labelledby="attention-heading">
       <h2 id="attention-heading" className="font-heading text-xl font-semibold tracking-tight">
         Needs attention
       </h2>
-      <div className="mt-3 border-b">
-        <Row label="Overdue" count={late.length}>
-          {late.length === 0 ? (
-            <Nothing>No open task is past its due date.</Nothing>
-          ) : (
-            <Items
-              items={late}
-              render={(entry) => (
-                <>
-                  <button type="button" className={openClass} onClick={() => openRef(entry.ref)}>
-                    {entry.title || "Untitled task"}
-                  </button>
-                  <p className="text-xs text-muted-foreground">
-                    <span className="bg-marker px-1 text-foreground">{span(daysBetween(entry.date, today))} late</span> due{" "}
-                    {shortDate(entry.date, true)}
-                    {withPeople(entry)}
-                  </p>
-                </>
+      <div className="mt-3 grid gap-x-10 lg:grid-cols-2">
+        <div className="min-w-0 border-b">
+        <Ledger
+          label="Overdue"
+          items={late}
+          empty="No open task is past its due date."
+          render={(entry) => (
+            <div className={lineClass}>
+              <button type="button" title={entry.title} className={openClass} onClick={() => openRef(entry.ref)}>
+                {entry.title || "Untitled task"}
+              </button>
+              <span className={asideClass}>
+                <span className="bg-marker px-1 text-foreground">{span(daysBetween(entry.date, today))} late</span>
+              </span>
+            </div>
+          )}
+        />
+        <Ledger
+          label="Waiting on others"
+          items={brief.waiting}
+          empty="The file shows nothing the firm is waiting on from anyone else."
+          render={(item) => {
+            const waited = shortDate(item.since) ? span(daysBetween(item.since, today)) : "";
+            const facts = [waited, item.asked > 0 && `asked ${item.asked === 1 ? "once" : `${item.asked} times`}`].filter(Boolean);
+            return (
+              <p className="text-sm leading-5">
+                <span className="font-medium">{item.on}</span>
+                {item.on && item.what ? ": " : ""}
+                {item.what}{" "}
+                {facts.length > 0 && <span className={asideClass}>waiting {facts.join(", ")} </span>}
+                <SourceLinks evidence={item.evidence} />
+              </p>
+            );
+          }}
+        />
+        </div>
+        <div className="min-w-0 border-b max-lg:border-t-0">
+        <Ledger
+          label={`Coming up in ${AHEAD} days`}
+          items={coming}
+          empty={`No task is due and nothing is on the calendar in the next ${AHEAD} days.`}
+          render={(entry) => (
+            <div className={lineClass}>
+              <button type="button" title={entry.title} className={openClass} onClick={() => openRef(entry.ref)}>
+                {entry.title || `Untitled ${KIND_WORD[entry.kind]}`}
+              </button>
+              <span className={asideClass}>
+                {entry.kind === "task" ? "due" : "calendar"} {shortDate(entry.date)}
+              </span>
+            </div>
+          )}
+        />
+        <Ledger
+          label="To decide"
+          items={brief.decisions}
+          empty="The file shows no decision waiting on the attorney."
+          render={(item) => (
+            <p className="text-sm leading-5">
+              {item.what}{" "}
+              {shortDate(item.by) && (
+                <span className="text-xs whitespace-nowrap text-muted-foreground">
+                  by {shortDate(item.by, true)}, {fromToday(item.by, today)}{" "}
+                </span>
               )}
-            />
+              <SourceLinks evidence={item.evidence} />
+            </p>
           )}
-        </Row>
-        <Row label="Coming up" count={coming.length}>
-          {coming.length === 0 ? (
-            <Nothing>No task is due and nothing is on the calendar in the next {AHEAD} days.</Nothing>
-          ) : (
-            <Items
-              items={coming}
-              render={(entry) => (
-                <>
-                  <button type="button" className={openClass} onClick={() => openRef(entry.ref)}>
-                    {entry.title || `Untitled ${KIND_WORD[entry.kind]}`}
-                  </button>
-                  <p className="text-xs text-muted-foreground">
-                    {entry.kind === "task" ? "Task due" : "On the calendar"} {shortDate(entry.date)}, {fromToday(entry.date, today)}
-                    {withPeople(entry)}
-                  </p>
-                </>
-              )}
-            />
-          )}
-        </Row>
-        <Row label="Waiting on others" count={brief.waiting.length}>
-          {brief.waiting.length === 0 ? (
-            <Nothing>The file shows nothing the firm is waiting on from anyone else.</Nothing>
-          ) : (
-            <Items
-              items={brief.waiting}
-              render={(item) => {
-                const since = shortDate(item.since, true);
-                const facts = [
-                  since && `since ${since} (${span(daysBetween(item.since, today))})`,
-                  item.asked > 0 && `asked ${item.asked === 1 ? "once" : `${item.asked} times`}`,
-                ].filter(Boolean);
-                return (
-                  <>
-                    <p className="text-[15px] leading-snug">
-                      <span className="font-medium">{item.on}</span>
-                      {item.on && item.what ? ": " : ""}
-                      {item.what}
-                    </p>
-                    {facts.length > 0 && <p className="text-xs text-muted-foreground">Waiting {facts.join(", ")}</p>}
-                    <SourceLinks evidence={item.evidence} />
-                  </>
-                );
-              }}
-            />
-          )}
-        </Row>
-        <Row label="To decide" count={brief.decisions.length}>
-          {brief.decisions.length === 0 ? (
-            <Nothing>The file shows no decision waiting on the attorney.</Nothing>
-          ) : (
-            <Items
-              items={brief.decisions}
-              render={(item) => (
-                <>
-                  <p className="text-[15px] leading-snug">{item.what}</p>
-                  {shortDate(item.by) && (
-                    <p className="text-xs text-muted-foreground">
-                      By {shortDate(item.by, true)}, {fromToday(item.by, today)}
-                    </p>
-                  )}
-                  <SourceLinks evidence={item.evidence} />
-                </>
-              )}
-            />
-          )}
-        </Row>
+        />
+        </div>
       </div>
     </section>
   );

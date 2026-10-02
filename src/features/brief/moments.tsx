@@ -217,7 +217,8 @@ export function Moments({ file, stored, today }: SectionProps) {
 
   function pickOnStrip(number: number) {
     setSelected(number === selected ? null : number);
-    ledgerRows.current.get(number)?.scrollIntoView({ block: "nearest" });
+    // After the row has opened, so that the passages it now shows are in view too.
+    requestAnimationFrame(() => ledgerRows.current.get(number)?.scrollIntoView({ block: "nearest" }));
   }
 
   function pickInLedger(number: number, day: string) {
@@ -255,11 +256,11 @@ export function Moments({ file, stored, today }: SectionProps) {
           <h2 id="moments" className="font-heading text-xl font-semibold tracking-tight">
             {total > 0 ? `The ${inWords(total)} that matter` : "The moments that matter"}
           </h2>
-          <p className="max-w-prose text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             {whole.marks.length === 0
               ? "Nothing in the file is dated, so there is no strip to draw."
               : range === "all"
-                ? `Each line on the strip is one of the ${whole.marks.length} dated entries in the file.` +
+                ? `Each line is one of the ${whole.marks.length} dated entries in the file.` +
                   (total > 0 ? ` The numbers are the ${inWords(total)} to know before picking it up.` : "")
                 : `Each line on the strip is one of the ${shown.count} entries dated in ${shown.period.words}, out of ${whole.marks.length} in the file.` +
                   (total > 0 ? ` ${capital(inWords(shown.moments.length))} of the ${inWords(total)} to know ${shown.moments.length === 1 ? "falls" : "fall"} in that time.` : "")}
@@ -420,7 +421,7 @@ export function Moments({ file, stored, today }: SectionProps) {
                     {hover.more > 0 && <span className="shrink-0">and {hover.more} more that day</span>}
                   </>
                 ) : (
-                  "Point at a line to see what it is; select it to open it."
+                  "Point at a line to see what it is and select it to open it. Select a number to read why it matters and the passages behind it."
                 )}
               </p>
               {(whole.quiet || whole.earlier > 0) && (
@@ -461,30 +462,53 @@ export function Moments({ file, stored, today }: SectionProps) {
                   if (element) ledgerRows.current.set(moment.number, element);
                   else ledgerRows.current.delete(moment.number);
                 }}
-                className={cn(COLUMNS, "gap-y-1 py-3", isSelected && "bg-card shadow-[inset_2px_0_0_var(--primary)]")}
+                className={cn(COLUMNS, "items-baseline py-1.5", isSelected && "bg-card shadow-[inset_2px_0_0_var(--primary)]")}
               >
                 <button
                   type="button"
                   aria-pressed={isSelected}
-                  aria-label={`Moment ${moment.number}, ${shortDate(moment.day, true) || "undated"}: show on the strip`}
+                  aria-label={`Moment ${moment.number}, ${shortDate(moment.day, true) || "undated"}: ${isSelected ? "close" : "read why it matters and the passages behind it"}`}
                   onClick={() => pickInLedger(moment.number, moment.day)}
-                  className="flex cursor-pointer items-start gap-2 self-start rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                  className="flex cursor-pointer items-center gap-2 rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
                 >
                   <NumberMark number={moment.number} selected={isSelected} />
-                  <span>
-                    <span className="block text-sm leading-5 tabular-nums">{shortDate(moment.day, true) || "Undated"}</span>
-                    {(LANES as readonly string[]).includes(lane) && (
-                      <span className="block text-xs text-muted-foreground first-letter:uppercase">{lane}</span>
-                    )}
-                  </span>
+                  <span className="text-sm leading-5 tabular-nums">{shortDate(moment.day, true) || "Undated"}</span>
                 </button>
-                <div className="space-y-1 pr-3">
-                  <h3 className="font-serif text-[17px] leading-snug text-pretty">{moment.title}</h3>
-                  {moment.why && <p className="max-w-prose text-sm leading-relaxed">{moment.why}</p>}
-                  {moment.evidence.length > 0 ? (
-                    <SourceLinks evidence={moment.evidence} />
-                  ) : (
-                    <p className="text-xs text-muted-foreground">The brief gives no source for this.</p>
+                <div className="min-w-0 pr-3">
+                  <h3 className="font-serif text-base leading-snug text-pretty">
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      aria-hidden
+                      onClick={() => pickInLedger(moment.number, moment.day)}
+                      className="mr-2 cursor-pointer text-left outline-none"
+                    >
+                      {moment.title}
+                    </button>
+                    {/* The selected moment writes its passages out below; the others name their sources. */}
+                    {!isSelected &&
+                      (moment.evidence.length > 0 ? (
+                        <SourceLinks evidence={moment.evidence} />
+                      ) : (
+                        <span className="font-sans text-xs text-muted-foreground">The brief gives no source for this.</span>
+                      ))}
+                  </h3>
+                  {isSelected && (
+                    <div className="mt-1 mb-1 max-w-[46rem] space-y-1.5">
+                      <p className="text-sm leading-5">
+                        {(LANES as readonly string[]).includes(lane) && (
+                          <span className="text-muted-foreground">{capital(lane)}. </span>
+                        )}
+                        {moment.why}
+                      </p>
+                      {moment.evidence.length > 0 ? (
+                        <div className="border-l-2 border-marker pl-3">
+                          <SourceLinks evidence={moment.evidence} quotes />
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">The brief gives no source for this.</p>
+                      )}
+                    </div>
                   )}
                 </div>
               </li>

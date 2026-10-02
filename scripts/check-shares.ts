@@ -2,21 +2,14 @@
 //   pnpm -s script scripts/check-shares.ts            publish, open, reply, republish, withdraw, then delete what it made
 //   pnpm -s script scripts/check-shares.ts --keep     stop after the reply and print the page's address, to look at it
 //   pnpm -s script scripts/check-shares.ts --remove <share id>    delete a share left by --keep
+//   pnpm -s script scripts/check-shares.ts --material <contact ref>    print what the drafting model would be sent for that provider
 // The lines it publishes are plain test text, not facts of the case. It never touches a provider
 // who already has a live update.
 import { getBrief } from "@/features/brief/server";
 import { getCaseFile, listCases } from "@/features/cases/server";
 import type { DraftLine } from "@/features/shares/schema";
-import {
-  getDraft,
-  getShareByToken,
-  previewMaterial,
-  publishShare,
-  replyToShare,
-  revokeShare,
-  ShareError,
-  sharesFor,
-} from "@/features/shares/server";
+import { getShareByToken, replyToShare, ShareError } from "@/features/shares/link";
+import { getDraft, previewMaterial, publishShare, revokeShare, sharesFor } from "@/features/shares/server";
 import { supabase } from "@/server/supabase";
 
 let failures = 0;
@@ -46,6 +39,10 @@ async function main() {
   const keep = args.includes("--keep");
 
   const [first] = await listCases();
+  if (first && args[0] === "--material") {
+    // Everything the drafting model would be sent for one provider, word for word. No model is called.
+    return console.log((await previewMaterial(first.matterId, args[1])).prompt);
+  }
   if (!first) return console.log("No case has been read from Clio yet, so nothing can be published. Read a case first.");
   const file = (await getCaseFile(first.matterId))!;
   const stored = await getBrief(file.matterId);
@@ -70,8 +67,21 @@ async function main() {
   );
   const own = [material.provider, ...material.staff, ...material.tasks, ...material.messages, ...material.calendar, ...material.held];
   check("no note, custom field or expense is in the material", own.every((item) => !/^[NFX]\d/.test(item.ref)));
+  const working = [...material.tasks, ...material.calendar, ...material.messages.filter((item) => item.detail?.startsWith("Phone call"))];
+  check("of a task, a calendar entry and a phone call only the heading is in the material, never the firm's description", working.every((item) => item.text === ""));
+  const kept = file.entries.filter((entry) => ["note", "field", "expense"].includes(entry.kind) && entry.text.trim().length > 40);
+  check("the text of no note, custom field or expense is in what the model is sent", kept.every((entry) => !prompt.includes(entry.text.trim().slice(0, 40))));
   const clientMessages = file.entries.filter((entry) => (entry.kind === "email" || entry.kind === "call") && entry.people.includes(file.client.name));
   check("no message the client took part in is in the material", clientMessages.every((entry) => !material.messages.some((item) => item.ref === entry.ref)));
+
+  // Nobody but a treating provider can be drafted for or published to: not the client, not the other side.
+  const people = file.entries.filter((entry) => entry.kind === "contact");
+  const outsider =
+    people.find((entry) => stored !== null && entry.facts.isClient !== true && !treating.has(entry.ref)) ?? people.find((entry) => entry.facts.isClient === true);
+  if (outsider) {
+    const refused = await previewMaterial(file.matterId, outsider.ref).then(() => false, (err) => err instanceof ShareError);
+    check("a contact who is not a treating provider is refused", refused, outsider.text);
+  }
 
   // Publish: two lines switched on, one switched off.
   const lines = [

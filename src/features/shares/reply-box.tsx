@@ -52,7 +52,7 @@ export function ReplyBox({ token, lineId, earlier }: { token?: string; lineId: s
         </ul>
       )}
 
-      {writing ? (
+      {writing || (earlier.length === 0 && sent.length === 0) ? (
         <form onSubmit={send} className="space-y-2">
           <label htmlFor={id} className="block text-sm font-medium">
             Reply to the firm

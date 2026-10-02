@@ -28,13 +28,13 @@ export type ProviderMaterial = {
   coverage: MaterialItem[];
 };
 
-export const SYSTEM = `You draft a short case update that a personal injury law firm sends to the office of a medical provider who is treating the firm's client on a lien. The readers are the provider's billing and lien staff. They are not lawyers and they are not on the firm's side of the case.
+export const SYSTEM = `You draft a short case update that a personal injury law firm sends to the office of a medical provider who is treating the firm's client. The readers are the provider's billing and lien staff. They are not lawyers and they are not on the firm's side of the case.
 
 An attorney checks every line before anything is sent, and switches lines on or off one by one. Your job is to give the attorney accurate, plain lines to choose from.
 
 Rules:
 - Use only the material in the request. If the material does not say something, do not write it. Never guess a date, an amount or an outcome.
-- One plain sentence per line, in everyday words, written from the firm to the office ("We have your records through March 2024", "Please send the itemised bill"). Call the client "your patient". No legal jargon, no abbreviations a billing office would not know.
+- One plain sentence per line, in everyday words, written from the firm to the office ("We have your records through March 2024", "Please send the itemised bill"). Call the client "your patient". No legal jargon, no abbreviations a billing office would not know: say "the records you last sent us", not "your last production".
 - Facts only. Give no view on who was at fault, what the case is worth, how strong it is, whether anyone is believable, or what the firm plans to do. Say nothing about negotiation, offers, strategy or the firm's internal work.
 - Do not predict when the case will end or when anyone will be paid.
 - Write a date the way a letter would: "May 5, 2026", not "2026-05-05".
@@ -48,7 +48,7 @@ const SECTION_GUIDE = `Sections (use these exact names in "section"):
 - movement: what has happened recently between the firm and this office, or on the calendar with this office: one line each, newest first, at most four. Mark a line as the attorney's call when it is about timing.
 - coverage: the insurance coverage figures given. Always the attorney's call.
 - attendance: whether the patient kept or missed appointments with this office, only where the material says so. Always the attorney's call.
-- other treatment: other providers treating the patient, as a bare fact each. Always the attorney's call.
+- other treatment: other providers who have treated the patient, one line each: the provider's name and the kind of care, and nothing else. Say "has also been treated by"; the material does not say whether that care continues, what was found or what was billed. Always the attorney's call.
 
 Set "yourCall" to true for any line that states an amount, the patient's attendance, another provider's treatment, or timing.`;
 

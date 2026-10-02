@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { shortDate } from "@/features/cases/schema";
+import { Disclosure } from "./fold";
 import type { SectionProps } from "./schema";
 
 // US dollars per million tokens, matched on the start of the model id.
@@ -42,7 +43,8 @@ function plural(n: number, one: string, many: string) {
 
 /**
  * How this brief was made: when the case was read from Clio, which model read the documents and
- * wrote the brief, and what that reading cost. A quiet footer, all of it computed from what is stored.
+ * wrote the brief, and what that reading cost. A quiet footer, closed until asked for, all of it
+ * computed from what is stored.
  */
 export function HowMade({ file, stored, index, today }: SectionProps) {
   const briefCost = costOf(stored.model, stored.usage);
@@ -53,11 +55,12 @@ export function HowMade({ file, stored, index, today }: SectionProps) {
   ];
 
   return (
-    <section aria-labelledby="how-made" className="space-y-3 text-sm text-muted-foreground">
-      <h2 id="how-made" className="font-heading text-lg font-semibold tracking-tight text-foreground">
-        How this brief was made
-      </h2>
-      <dl className="divide-y border-y">
+    <Disclosure
+      title="How this brief was made"
+      remark={`Written ${dayAt(stored.createdAt, today)}${stored.current ? ", current with Clio" : ", Clio has changed since"}`}
+      className="text-sm text-muted-foreground [&_summary>span:first-child]:text-foreground"
+    >
+      <dl className="divide-y border-t">
         <Row label="The case file">
           <p>
             Read from Clio {dayAt(file.syncedAt, today)}: {plural(file.entries.length, "entry", "entries")}.
@@ -113,7 +116,7 @@ export function HowMade({ file, stored, index, today }: SectionProps) {
           <p>Opening the case costs nothing, because nothing is read again.</p>
         </Row>
       </dl>
-    </section>
+    </Disclosure>
   );
 }
 

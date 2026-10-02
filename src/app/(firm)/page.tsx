@@ -20,7 +20,7 @@ export default async function CasesPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6">
       <div>
         <h1 className="font-heading text-3xl font-semibold tracking-tight">Cases</h1>
         <p className="mt-1 text-muted-foreground">The matters in your Clio account. Open one to read its brief.</p>

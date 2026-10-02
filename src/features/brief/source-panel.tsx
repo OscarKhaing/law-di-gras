@@ -67,8 +67,9 @@ function dated(entry: Entry, year: string) {
 function sourceLabel(entry: Entry, page: number | null, year: string) {
   if (entry.kind === "field" || entry.kind === "contact") return entry.title;
   if (entry.kind === "document") return page ? `${shortName(entry.title)} p. ${page}` : shortName(entry.title);
-  if (entry.kind === "task" || entry.kind === "expense") return KIND_WORD[entry.kind];
   const date = dated(entry, year);
+  // A task's date is the day it is due, not the day it was written.
+  if (entry.kind === "task") return date ? `task due ${date}` : "task";
   return date ? `${KIND_WORD[entry.kind]}, ${date}` : KIND_WORD[entry.kind];
 }
 
@@ -162,19 +163,67 @@ function details(entry: Entry): [string, string][] {
 const linkClass =
   "cursor-pointer rounded-sm underline decoration-input underline-offset-2 outline-none hover:text-foreground hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring/50";
 
-/** The sources of one statement: each quoted passage as a marker stroke, each source as a small link. */
-export function SourceLinks({ evidence }: { evidence: SourceEvidence[] }) {
+/**
+ * A document's name as a few words for a link: the last part of a structured file name, without
+ * its extension or a trailing date ("…__some-office-records-2023-05-17.pdf" reads "some office records").
+ */
+function linkName(name: string) {
+  const bare = name.replace(/\.[a-z0-9]{2,5}$/i, "");
+  const words = (bare.split(/__+/).at(-1) ?? bare)
+    .replace(/[-_\s]+/g, " ")
+    .replace(/\s*\d{4} \d{2} \d{2}$/, "")
+    .trim();
+  if (words.length <= 30) return words || shortName(name, 30);
+  const cut = words.slice(0, 30);
+  return `${cut.slice(0, Math.max(cut.lastIndexOf(" "), 12))}…`;
+}
+
+/**
+ * The sources of one statement, as small links on one line: "note, Sep 27", "email, Sep 12",
+ * "records p. 40". Opening one shows the entry, or the page, with the quoted passage marked.
+ * With `quotes`, each quoted passage is also written out as a marker stroke, one under the other:
+ * for the few places where the passage itself is the point.
+ */
+export function SourceLinks({ evidence, quotes = false }: { evidence: SourceEvidence[]; quotes?: boolean }) {
   const { entries, open, year } = useContext(SourceContext);
   const seen = new Set<string>();
   const items = evidence.flatMap((item) => {
     const { ref, page } = parseSource(item.source);
     const entry = entries.get(ref);
-    const key = `${ref} ${page ?? ""} ${item.quote}`;
+    // As links, two passages from one entry or page are one place to open.
+    const key = quotes ? `${ref} ${page ?? ""} ${item.quote}` : `${ref} ${page ?? ""}`;
     if (!entry || seen.has(key)) return [];
     seen.add(key);
-    return [{ item, key, label: sourceLabel(entry, page, year), quote: decodeEntities(item.quote).trim() }];
+    const label =
+      entry.kind === "document"
+        ? page
+          ? `${linkName(entry.title)} p. ${page}`
+          : linkName(entry.title)
+        : sourceLabel(entry, page, year);
+    return [{ item, key, label, quote: decodeEntities(item.quote).trim() }];
   });
   if (items.length === 0) return null;
+
+  if (!quotes) {
+    return (
+      <span className="font-sans text-xs font-normal text-muted-foreground">
+        {items.map(({ item, key, label, quote }, index) => (
+          <span key={key}>
+            {index > 0 && " "}
+            <button
+              type="button"
+              title={quote ? `“${quote}”` : undefined}
+              className={cn(linkClass, "mr-1.5 text-left whitespace-nowrap")}
+              onClick={() => open(item)}
+            >
+              {label}
+            </button>
+          </span>
+        ))}
+      </span>
+    );
+  }
+
   const quoted = items.filter((entry) => entry.quote !== "");
   const plain = items.filter((entry) => entry.quote === "");
 
@@ -199,19 +248,18 @@ export function SourceLinks({ evidence }: { evidence: SourceEvidence[] }) {
             >
               <Quote text={quote} />
             </button>{" "}
-            <span className="whitespace-nowrap">{label}</span>
+            <button type="button" className={cn(linkClass, "whitespace-nowrap")} onClick={() => open(item)}>
+              {label}
+            </button>
           </span>
         ),
       )}
       {plain.length > 0 && (
-        <span className="block">
-          {plain.map(({ item, key, label }, index) => (
-            <span key={key}>
-              {index > 0 && ", "}
-              <button type="button" className={linkClass} onClick={() => open(item)}>
-                {label}
-              </button>
-            </span>
+        <span className="flex flex-wrap gap-x-3">
+          {plain.map(({ item, key, label }) => (
+            <button key={key} type="button" className={linkClass} onClick={() => open(item)}>
+              {label}
+            </button>
           ))}
         </span>
       )}
