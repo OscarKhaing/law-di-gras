@@ -265,12 +265,16 @@ export async function previewMaterial(matterId: number, contactRef: string) {
  * The top of an update: who it is from, who it is about and where the case stands. Publishing and
  * the attorney's preview both use this, so the preview shows what the provider's page will.
  */
-export function updateHead(file: CaseFile, contact: Entry): Pick<ProviderUpdate, "firm" | "contactLine" | "patient" | "provider" | "stage" | "stages"> {
+export function updateHead(
+  file: CaseFile,
+  contact: Entry,
+): Pick<ProviderUpdate, "firm" | "contactLine" | "patient" | "provider" | "status" | "stage" | "stages"> {
   return {
     firm: file.firm.name,
     contactLine: [file.firm.user, file.firm.email].filter(Boolean).join(", "),
     patient: file.client.name,
     provider: contact.title,
+    status: file.status,
     stage: file.stage,
     stages: file.stages,
   };

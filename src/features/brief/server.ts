@@ -255,6 +255,14 @@ export async function draftFollowUp(matterId: number, index: number, signal?: Ab
   const addressee = lastAsk ? String(lastAsk.entry.facts.to).trim() : owing.isClient ? file.client.name : item.on;
   const recipient = lastAsk ? partyNamed(file, addressee) : owing;
   const treating = recipient.contact !== null && stored.brief.people.some((person) => person.treating && person.contact === recipient.contact?.ref);
+  // With no cited request of the firm's, the only name to write to is the one the brief gives. For
+  // the client or a treating provider that is safe. For anyone else it may be a party the firm may
+  // not write to directly (someone represented by counsel, say), so nothing is drafted to them.
+  if (!lastAsk && !recipient.isClient && !treating) {
+    throw new Error(
+      "The brief cites no message the firm sent about this, so there is no earlier request to follow up, and the party it names is not the client or a treating provider. Look in the full file for who was asked before writing to anyone.",
+    );
+  }
   const relation = recipient.isClient
     ? "the firm's own client"
     : treating

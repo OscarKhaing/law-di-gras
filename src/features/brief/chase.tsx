@@ -22,6 +22,7 @@ import {
 } from "@/features/cases/schema";
 import { KIND_WORD, daysBetween, fromToday, span } from "@/features/cases/words";
 import { fetchJson } from "@/lib/fetch-json";
+import { useOpenTab } from "./case-tabs";
 import { foldClass, useFold } from "./fold";
 import type { CheckedBrief, CheckedEvidence, SectionProps } from "./schema";
 import { SourceLinks, useSource } from "./source-panel";
@@ -62,6 +63,12 @@ type Row = {
   role: string;
   /** Whether the brief marks this contact as a provider treating the client. */
   treating: boolean;
+  /**
+   * Whether a follow-up can be drafted. It follows a request the brief cites; with none cited it is
+   * written only to the client or a treating provider, never to another party the brief names,
+   * who may be someone the firm may not write to directly. The server holds the same rule.
+   */
+  canDraft: boolean;
   /** The latest cited entry that is not their own message, and whether it is a message the firm sent. */
   last: Entry | null;
   lastIsAsk: boolean;
@@ -111,6 +118,7 @@ function rowsOf(file: CaseFile, brief: CheckedBrief, today: string): Row[] {
       party,
       role,
       treating: person?.treating === true,
+      canDraft: asks.length > 0 || party.isClient || person?.treating === true,
       last,
       lastIsAsk: asks.length > 0,
       theirs,
@@ -292,6 +300,7 @@ function ChaseRow({
   onCopy: (ready: Ready) => void;
 }) {
   const { open, openRef } = useSource();
+  const openTab = useOpenTab();
   const { item, party } = row;
   const year = today.slice(0, 4);
   const day = (date: string) => shortDate(date, date.slice(0, 4) !== year);
@@ -370,7 +379,15 @@ function ChaseRow({
 
       <div className="flex flex-col items-start gap-1.5 md:items-end">
         {words && <StatusPill tone={toneOf(row.days)}>{words}</StatusPill>}
-        {state?.status === "ready" ? (
+        {!row.canDraft ? (
+          <p className="max-w-[13rem] text-xs leading-snug text-muted-foreground md:text-right">
+            No follow-up to draft: the brief cites no message the firm sent about this, and this is not the client or a
+            treating provider.{" "}
+            <button type="button" className={linkClass} onClick={() => openTab("file")}>
+              Look in the full file
+            </button>
+          </p>
+        ) : state?.status === "ready" ? (
           <Button size="sm" variant="outline" aria-expanded={state.open} onClick={() => onChange({ open: !state.open })}>
             {state.open ? "Close the draft" : "Open the draft"}
           </Button>

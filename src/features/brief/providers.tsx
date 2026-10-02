@@ -122,7 +122,7 @@ function ProviderRow({
     .sort((a, b) => b.file.at.localeCompare(a.file.at));
 
   return (
-    <div className="grid gap-x-6 gap-y-1.5 py-2 lg:grid-cols-[13rem_minmax(0,1fr)_13rem_8.5rem] 2xl:grid-cols-[16rem_minmax(0,1fr)_15rem_9.5rem]">
+    <div className="grid gap-x-6 gap-y-1.5 py-2 2xl:grid-cols-[13rem_minmax(0,1fr)_13rem_8.5rem] 2xl:grid-cols-[16rem_minmax(0,1fr)_15rem_9.5rem]">
       <Who person={person} entry={entry} />
 
       <div className="min-w-0 space-y-1.5">
@@ -139,7 +139,7 @@ function ProviderRow({
         )}
       </div>
 
-      <div className="flex flex-col items-start gap-1 lg:items-end lg:text-right">
+      <div className="flex flex-col items-start gap-1 2xl:items-end 2xl:text-right">
         {entry ? (
           <Link
             href={`/cases/${clioMatterId(file.matterId)}/providers/${ref}`}
@@ -158,7 +158,7 @@ function ProviderRow({
 
       {/* What the office sent back, under the row and across its width, so a reply or a file name is not squeezed into one column. */}
       {(replies.length > 0 || files.length > 0) && (
-        <div className="min-w-0 space-y-1.5 lg:col-span-3 lg:col-start-2">
+        <div className="min-w-0 space-y-1.5 2xl:col-span-3 2xl:col-start-2">
           {replies.map((reply, index) => (
             <p key={index} className="w-fit max-w-full border-l-2 border-marker bg-marker-soft px-2.5 py-1">
               <span className="block text-xs text-muted-foreground">
@@ -167,12 +167,20 @@ function ProviderRow({
               <span className="font-serif text-[15px] leading-snug">{reply.text}</span>
             </p>
           ))}
-          {files.map(({ shareId, file }) => (
-            <p key={file.path} className="w-fit max-w-full border-l-2 border-marker bg-marker-soft px-2.5 py-1 text-xs text-muted-foreground">
-              <span className="block">Received from the provider, not yet in Clio ({dayAt(file.at, today)}):</span>
-              <ReceivedFileLink shareId={shareId} file={file} />
-            </p>
-          ))}
+          {/* The newest few files, plainly: a file's name is not a quoted passage. The update's own screen lists them all. */}
+          {files.length > 0 && (
+            <div className="w-fit max-w-full border-l-2 pl-2.5 text-xs leading-5 text-muted-foreground">
+              <p>Received from the provider, not yet in Clio:</p>
+              <ul>
+                {files.slice(0, 3).map(({ shareId, file }) => (
+                  <li key={file.path}>
+                    <ReceivedFileLink shareId={shareId} file={file} /> ({dayAt(file.at, today)})
+                  </li>
+                ))}
+              </ul>
+              {files.length > 3 && <p>and {files.length - 3} more, all listed under &ldquo;Prepare update&rdquo;.</p>}
+            </div>
+          )}
         </div>
       )}
     </div>

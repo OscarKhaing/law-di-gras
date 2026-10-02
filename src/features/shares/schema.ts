@@ -58,6 +58,8 @@ export type ProviderUpdate = {
   contactLine: string;
   patient: string;
   provider: string;
+  /** Clio's own word for the matter's status at publishing, e.g. "Open". An update published before this was carried has none. */
+  status?: string;
   stage: string;
   stages: string[];
   lines: { id: string; section: string; text: string }[];

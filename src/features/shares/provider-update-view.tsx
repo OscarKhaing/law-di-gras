@@ -30,6 +30,10 @@ export function ProviderUpdateView({ update, replies = [], files = [], preview =
   })).filter(({ lines }) => lines.length > 0);
   // Said only when the attorney chose to share a line about insurance; otherwise the page is silent on it.
   const covered = sections.some(({ section }) => section === "coverage");
+  // The case is called active only while Clio has the matter open; any other status is said in Clio's
+  // own word. An update published before the status was carried says what it said then.
+  const status = (update.status ?? "").trim();
+  const open = status === "" || status.toLowerCase() === "open";
   const pill = "max-w-full px-2.5 py-1 text-sm";
 
   return (
@@ -37,9 +41,15 @@ export function ProviderUpdateView({ update, replies = [], files = [], preview =
       {/* The first thing a billing office asks: is the case alive, where is it, and is there coverage. */}
       <ul aria-label="Where this case stands" className="mb-5 flex flex-wrap gap-2">
         <li className="max-w-full">
-          <StatusPill tone="done" className={pill}>
-            Case active
-          </StatusPill>
+          {open ? (
+            <StatusPill tone="done" className={pill}>
+              Case active
+            </StatusPill>
+          ) : (
+            <StatusPill tone="neutral" className={pill}>
+              <span className="truncate">Case {status.toLowerCase()}</span>
+            </StatusPill>
+          )}
         </li>
         {update.stage && (
           <li className="max-w-full">

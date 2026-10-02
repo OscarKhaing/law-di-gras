@@ -230,8 +230,8 @@ export async function startUpload(
 
 /**
  * Confirm a file the office's browser has sent, and tell the firm. The path must be in this share's
- * own folder and the file must be there; its real size and its first bytes are checked, and a file
- * that fails is deleted. Confirming the same file twice records it once.
+ * own folder and the file must be there; its real size, its first bytes and the kind it was stored
+ * under are checked, and a file that fails is deleted. Confirming the same file twice records it once.
  */
 export async function finishUpload(token: unknown, lineId: unknown, path: unknown): Promise<SentFile> {
   const share = await liveLine(token, lineId);
@@ -254,7 +254,10 @@ export async function finishUpload(token: unknown, lineId: unknown, path: unknow
   if (unsigned) throw unsigned;
   const first = await fetch(link.signedUrl, { headers: { Range: "bytes=0-7" } });
   if (!first.ok) throw new Error(`Could not read a file sent to ${share.id}: ${first.status}`);
-  if (!Object.hasOwn(FILE_KINDS, kindOf(new Uint8Array(await first.arrayBuffer())))) return refuse(WRONG_KIND, 415);
+  // The kind the file was stored under is the kind it is opened as at the firm, and the office's
+  // browser chose it when sending. It must be the kind the bytes themselves say.
+  const kind = kindOf(new Uint8Array(await first.arrayBuffer()));
+  if (!Object.hasOwn(FILE_KINDS, kind) || info.contentType !== kind) return refuse(WRONG_KIND, 415);
 
   const { data: rows, error: unread } = await supabase()
     .from("share_events")

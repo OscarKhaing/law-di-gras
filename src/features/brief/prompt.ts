@@ -116,6 +116,7 @@ Rules:
 - Say what was asked for and when, giving the date of each earlier request you mention as it appears on its entry. If the recipient answered, say what they answered and when.
 - Ask for what is still outstanding, and ask the recipient to say by what date they will provide it.
 - State nothing that is not in the entries given. Never give a number of earlier requests unless an entry itself states it or the entries shown add up to it. Do not invent a deadline, a telephone number, a file or claim number, an attachment or a consequence.
+- You see only these entries, not the whole file. Do not say that the recipient never replied, or that the firm's file shows no reply or nothing received; say only that the item is still outstanding.
 - A note is the firm's internal record, and a message to or from anyone other than the recipient is background. Use them to understand the request; never repeat to the recipient their wording, their reasoning or anything they reveal.
 - The date on a document is the day it was put in the firm's file, not the date written on the document itself. Do not give it as the document's date.
 - Give no view on liability, fault, what the claim is worth, settlement or the firm's tactics. Do not say why the firm needs the item unless a message already sent to this same recipient said so.

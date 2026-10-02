@@ -120,7 +120,10 @@ async function main() {
     // Looking the update up records nothing; the page records the open itself, after it has answered.
     if (opened) await recordOpen(opened.id, "check-shares");
     check("only the lines switched on are in it", opened?.update.lines.map((item) => item.id).join() === "check-1,check-2");
-    check("the stage and stages come from the case file", opened?.update.stage === file.stage && opened.update.stages.length === file.stages.length);
+    check(
+      "the status, the stage and the stages come from the case file",
+      opened?.update.status === file.status && opened.update.stage === file.stage && opened.update.stages.length === file.stages.length,
+    );
 
     const reply = await replyToShare(token, "check-2", "Test reply from the provider's office.");
     check("a reply is stored", Boolean(reply.at), reply.at);
@@ -162,8 +165,12 @@ async function main() {
     const fake = await startUpload(token, "check-2", "not-a-pdf.pdf", pdf, 20);
     await put(fake.url, text("just some plain text"), pdf);
     check("a file whose contents are not a PDF, JPEG or PNG is refused", await refused(finishUpload(token, "check-2", fake.path)));
+    // A file whose bytes are a PDF but which was sent to storage as another kind, so it would open as that kind.
+    const disguised = await startUpload(token, "check-2", "disguised.pdf", pdf, TEST_PDF.length);
+    await put(disguised.url, TEST_PDF, "text/html");
+    check("a file stored under a kind its contents are not is refused", await refused(finishUpload(token, "check-2", disguised.path)));
     const { data: left } = await supabase().storage.from("documents").list(`shares/${published.shareId}`);
-    check("and is deleted from storage", left?.length === 1, `${left?.length} file(s) in the folder`);
+    check("and both are deleted from storage", left?.length === 1, `${left?.length} file(s) in the folder`);
 
     const seen = (await sharesFor(first.matterId)).find((share) => share.id === published.shareId);
     check("the firm sees the file on the share", seen?.files.length === 1 && seen.files[0].path === slot.path && seen.files[0].lineId === "check-2");

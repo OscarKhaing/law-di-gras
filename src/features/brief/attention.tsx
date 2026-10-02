@@ -13,7 +13,10 @@ const AHEAD = 30;
 const SOON = 7;
 
 const openClass =
-  "max-w-full cursor-pointer truncate rounded-sm text-left align-bottom font-serif text-[15px] leading-6 underline decoration-input underline-offset-2 outline-none hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring/50";
+  "max-w-full cursor-pointer rounded-sm text-left align-bottom font-serif text-[15px] leading-snug underline decoration-input underline-offset-2 outline-none hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring/50";
+// A title runs to three lines before it is cut, so a task still says who it is about and what is
+// wanted in a narrow column.
+const titleClass = "line-clamp-3 text-pretty";
 
 /** One of the four ledgers: its name and count, then one line per item, the first five until asked. */
 function Ledger<T>({
@@ -57,7 +60,11 @@ function Ledger<T>({
 const lineClass = "grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3";
 const asideClass = "text-xs whitespace-nowrap text-muted-foreground";
 
-/** What is late, what is coming, what the firm is waiting for and what the attorney has to decide. */
+/**
+ * What is late, what is coming and what the attorney has to decide, in the one case that is open.
+ * The heading says "in this case" because the firm's sidebar has "Cases that need attention", which
+ * counts cases across the firm; these are the tasks and dates inside this one.
+ */
 export function Attention({ file, stored, today }: SectionProps) {
   const { openRef } = useSource();
   const { brief } = stored;
@@ -67,7 +74,7 @@ export function Attention({ file, stored, today }: SectionProps) {
   return (
     <section aria-labelledby="attention-heading">
       <h2 id="attention-heading" className="font-heading text-xl font-semibold tracking-tight">
-        Needs attention
+        Needs attention in this case
       </h2>
       <div className="mt-3 grid gap-x-10 lg:grid-cols-2">
         <div className="min-w-0 border-b">
@@ -79,7 +86,7 @@ export function Attention({ file, stored, today }: SectionProps) {
           render={(entry) => (
             <div className={lineClass}>
               <button type="button" title={entry.title} className={openClass} onClick={() => openRef(entry.ref)}>
-                {entry.title || "Untitled task"}
+                <span className={titleClass}>{entry.title || "Untitled task"}</span>
               </button>
               <span className={asideClass}>
                 <StatusPill tone="urgent">{span(daysBetween(entry.date, today))} late</StatusPill>
@@ -97,7 +104,7 @@ export function Attention({ file, stored, today }: SectionProps) {
           render={(entry) => (
             <div className={lineClass}>
               <button type="button" title={entry.title} className={openClass} onClick={() => openRef(entry.ref)}>
-                {entry.title || `Untitled ${KIND_WORD[entry.kind]}`}
+                <span className={titleClass}>{entry.title || `Untitled ${KIND_WORD[entry.kind]}`}</span>
               </button>
               <span className={asideClass}>
                 {entry.kind === "task" ? "due" : "calendar"} {shortDate(entry.date)}{" "}

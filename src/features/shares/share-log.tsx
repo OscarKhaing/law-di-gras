@@ -142,32 +142,38 @@ function ShareRow({
             })}
           </ul>
         )}
-        {share.files.length > 0 && (
-          <ul className="space-y-2">
-            {share.files.map((file) => {
-              const asked = lines.find((line) => line.id === file.lineId)?.text;
-              return (
-                <li key={file.path} className="max-w-prose border-l-2 border-marker bg-marker-soft px-3 py-2">
-                  <p className="text-xs text-muted-foreground">
-                    Received from the provider, not yet in Clio, sent <LocalTime iso={file.at} style="sent" />
-                  </p>
-                  <p className="mt-0.5 text-sm text-muted-foreground">
-                    <ReceivedFileLink shareId={share.id} file={file} />
-                  </p>
-                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                    {asked ? (
-                      <>
-                        Sent for: <span className="font-serif text-[13px] text-foreground">{asked}</span>
-                      </>
-                    ) : (
-                      "Sent for a line that is no longer part of the update."
-                    )}
-                  </p>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+        {/* Files are a ledger under the request they were sent for: said once, however many files answer it. */}
+        {[...new Set(share.files.map((file) => file.lineId))].map((lineId) => {
+          const asked = lines.find((line) => line.id === lineId)?.text;
+          const sent = share.files.filter((file) => file.lineId === lineId);
+          return (
+            <div key={lineId ?? "no line"} className="max-w-prose">
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                {sent.length === 1 ? "A file" : `${sent.length} files`} received from the provider, not yet in Clio. A name opens
+                the file.{" "}
+                {asked ? (
+                  <>
+                    Sent for: <span className="font-serif text-[13px] text-foreground">{asked}</span>
+                  </>
+                ) : (
+                  "Sent for a line that is no longer part of the update."
+                )}
+              </p>
+              <ul className="mt-1.5 divide-y border-y">
+                {sent.map((file) => (
+                  <li key={file.path} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 py-1.5 text-muted-foreground">
+                    <span className="min-w-0">
+                      <ReceivedFileLink shareId={share.id} file={file} />
+                    </span>
+                    <span className="text-xs">
+                      sent <LocalTime iso={file.at} style="sent" />
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
 
         {state === "Live" &&
           (asking ? (

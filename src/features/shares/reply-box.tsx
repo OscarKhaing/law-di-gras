@@ -196,7 +196,7 @@ export function ReplyBox({ token, lineId, earlier, earlierFiles = [] }: Props) {
       )}
 
       {chosen && progress === null && (
-        <div className="space-y-2 border-l-2 border-marker bg-marker-soft px-3 py-2">
+        <div className="space-y-2 border-l-2 border-foreground/40 bg-muted px-3 py-2">
           <p className="text-[15px] leading-relaxed break-words">
             Ready to send: <span className="font-medium">{chosen.name}</span>, {fileSize(chosen.size)}. Check it is the right
             file for this patient; once sent it cannot be taken back from this page.

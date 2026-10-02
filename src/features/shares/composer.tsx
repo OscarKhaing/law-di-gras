@@ -320,7 +320,15 @@ export function Composer({ matterId, contactRef, providerName, head, storedDraft
                 const shown = folded ? mine.slice(0, FOLD_TO) : mine;
                 return (
                   <div key={section} className="grid gap-x-6 gap-y-1 border-t py-3 @xl:grid-cols-[9.5rem_minmax(0,1fr)]">
-                    <h3 className="text-sm leading-snug font-medium @xl:pt-3">{SECTION_HEADINGS[section]}</h3>
+                    <div className="@xl:pt-3">
+                      <h3 className="text-sm leading-snug font-medium">{SECTION_HEADINGS[section]}</h3>
+                      {section === "coverage" && (
+                        // The office's page says this from the section alone, so the attorney is told before switching a line on.
+                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                          Sharing a line here puts &ldquo;Coverage confirmed&rdquo; at the top of the office&rsquo;s page.
+                        </p>
+                      )}
+                    </div>
                     <div className="min-w-0">
                       {mine.length === 0 ? (
                         <p className="pt-3 pb-1 text-sm text-muted-foreground">No line here.</p>

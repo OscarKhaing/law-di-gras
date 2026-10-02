@@ -92,8 +92,8 @@ Checkpoints: **12:00** the brief page shows a real bottom line, money, needs att
 moments, and a line opens its source. **2:00** the whole workflow runs locally. **3:00** no new
 features. If behind at 2:00, cut provider replies, the client photo and full-file search first.
 
-Not building unless asked: sign-in for the firm side, email to providers, a body diagram, a role
-switch inside the firm.
+Not building unless asked: sign-in for the firm side, email to providers, a body diagram. ("Reading
+as" attorney or case manager reorders a case's parts; it is a view, not a permission.)
 
 ## Hard rule: self-check before adding anything
 

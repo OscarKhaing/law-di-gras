@@ -415,7 +415,7 @@ export function Settlement({ file, stored }: SectionProps) {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Assumed, not from the file: the file holds no fee agreement. Type the retainer&apos;s percentage.
+                Assumed, not read from the file. Type the percentage in the retainer.
                 {inputs.feeOn === "net of costs" &&
                   (inputs.costsOn && costs > 0
                     ? ` Taken on ${dollars(result.feeBase)}.`
