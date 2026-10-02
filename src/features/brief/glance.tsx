@@ -1,20 +1,23 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { panelClass } from "@/components/panel";
 import { StatusPill } from "@/components/status";
 import { lastClientContact, shortDate, upcoming } from "@/features/cases/schema";
 import { daysBetween, fromToday } from "@/features/cases/words";
+import { cn } from "@/lib/utils";
 import type { SectionProps } from "./schema";
 import { SourceLinks, useSource } from "./source-panel";
 
 const openClass =
   "cursor-pointer rounded-sm text-left underline decoration-input underline-offset-2 outline-none hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring/50";
 
+/** One fact: what it is above, the value below, set apart from the next by space alone. */
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="grid grid-cols-[9.5rem_minmax(0,1fr)] gap-x-4 border-t py-2.5">
-      <dt className="text-sm text-muted-foreground">{label}</dt>
-      <dd className="min-w-0 space-y-1">{children}</dd>
+    <div className="min-w-0">
+      <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
+      <dd className="mt-1 min-w-0 space-y-1.5">{children}</dd>
     </div>
   );
 }
@@ -49,7 +52,7 @@ export function Glance({ file, stored, today }: SectionProps) {
       <h2 id="glance-heading" className="font-heading text-xl font-semibold tracking-tight">
         At a glance
       </h2>
-      <dl className="mt-3 grid gap-x-10 border-b lg:grid-cols-2">
+      <dl className={cn(panelClass, "mt-3 grid gap-x-8 gap-y-6 p-5 sm:grid-cols-2 sm:p-6")}>
         <Row label="Date of incident">
           {shortDate(brief.incident.date, true) ? (
             <>

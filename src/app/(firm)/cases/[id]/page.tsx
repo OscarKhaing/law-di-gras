@@ -50,7 +50,7 @@ export default async function CasePage({ params }: PageProps<"/cases/[id]">) {
   const today = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 pb-16">
+    <div className="mx-auto max-w-6xl space-y-6 pb-16">
       <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">
         <Link href="/" className="hover:text-foreground hover:underline">
           Cases

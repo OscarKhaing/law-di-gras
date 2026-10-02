@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
+import { panelClass } from "@/components/panel";
 import { shortDate } from "@/features/cases/schema";
+import { cn } from "@/lib/utils";
 import type { SectionProps } from "./schema";
 
 // US dollars per million tokens, matched on the start of the model id.
@@ -57,7 +59,7 @@ export function HowMade({ file, stored, index, today }: SectionProps) {
       <h2 id="how-made" className="font-heading text-lg font-semibold tracking-tight text-foreground">
         How this brief was made
       </h2>
-      <dl className="divide-y border-y">
+      <dl className={cn(panelClass, "px-5 py-2")}>
         <Row label="The case file">
           <p>
             Read from Clio {dayAt(file.syncedAt, today)}: {plural(file.entries.length, "entry", "entries")}.

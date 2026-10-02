@@ -1,4 +1,6 @@
+import { panelClass } from "@/components/panel";
 import { byRef, parseSource } from "@/features/cases/schema";
+import { cn } from "@/lib/utils";
 import type { SectionProps } from "./schema";
 import { SourceLinks } from "./source-panel";
 
@@ -22,11 +24,11 @@ export function Injuries({ file, stored }: SectionProps) {
       </div>
 
       {injuries.length === 0 ? (
-        <p className="border-y py-3 text-sm text-muted-foreground">The brief names no injuries for this case.</p>
+        <p className={cn(panelClass, "p-5 text-sm text-muted-foreground")}>The brief names no injuries for this case.</p>
       ) : (
-        <dl className="divide-y border-y">
+        <dl className={cn(panelClass, "space-y-1 p-2")}>
           {injuries.map((item, index) => (
-            <div key={index} className="grid gap-x-6 gap-y-1 py-3 sm:grid-cols-[minmax(0,17rem)_minmax(0,1fr)]">
+            <div key={index} className="grid gap-x-6 gap-y-1.5 rounded-lg bg-muted/50 px-4 py-3 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
               <dt className="font-serif text-[17px] leading-snug text-pretty">{item.injury}</dt>
               <dd className="space-y-1">
                 {item.state ? (

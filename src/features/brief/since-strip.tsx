@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { panelClass } from "@/components/panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { changedSince, shortDate, type CaseFile, type Entry, type EntryKind } from "@/features/cases/schema";
 import { addDays } from "@/features/cases/words";
@@ -66,9 +67,9 @@ export function SinceStrip({ file, today }: { file: CaseFile; today: string }) {
 
   if (visit.status === "checking") {
     return (
-      <section aria-label="What is new" className="border-l-2 border-marker bg-marker-soft px-4 py-3" role="status">
+      <section aria-label="What is new" className={cn(panelClass, "px-5 py-4")} role="status">
         <p className="text-sm text-muted-foreground">Checking what is new since you last opened this case</p>
-        <Skeleton className="mt-2 h-4 w-2/3 bg-marker/40" />
+        <Skeleton className="mt-2 h-4 w-2/3" />
       </section>
     );
   }
@@ -107,13 +108,13 @@ export function SinceStrip({ file, today }: { file: CaseFile; today: string }) {
   ];
 
   return (
-    <section aria-labelledby="since-heading" className="border-l-2 border-marker">
-      <div className="bg-marker-soft px-4 py-2.5">
+    <section aria-labelledby="since-heading" className={cn(panelClass, "overflow-hidden")}>
+      <div className="bg-muted/60 px-5 py-3.5">
         <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
           <h2 id="since-heading" className="font-heading text-lg font-semibold tracking-tight">
             {heading}
           </h2>
-          <div role="group" aria-label="Period to show" className="flex gap-3 text-xs">
+          <div role="group" aria-label="Period to show" className="flex gap-1.5 text-xs">
             {options.map((option) => (
               <button
                 key={option.value}
@@ -125,9 +126,9 @@ export function SinceStrip({ file, today }: { file: CaseFile; today: string }) {
                   setExpanded([]);
                 }}
                 className={cn(
-                  "cursor-pointer border-b pb-0.5 outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-default disabled:opacity-50",
+                  "cursor-pointer rounded-full border px-2.5 py-1 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-default disabled:opacity-50",
                   range === option.value
-                    ? "border-foreground font-medium text-foreground"
+                    ? "border-foreground/15 bg-card font-medium text-foreground shadow-xs"
                     : "border-transparent text-muted-foreground hover:text-foreground",
                 )}
               >
@@ -150,13 +151,13 @@ export function SinceStrip({ file, today }: { file: CaseFile; today: string }) {
       </div>
 
       {groups.length > 0 && (
-        <div className="divide-y border-b pl-4">
+        <div className="grid gap-3 p-4 sm:grid-cols-2">
           {groups.map((group) => {
             const all = expanded.includes(group.kind);
             const shown = all ? group.entries : group.entries.slice(0, FIRST);
             return (
-              <div key={group.kind} className="grid gap-x-6 py-2 sm:grid-cols-[8.5rem_minmax(0,1fr)]">
-                <h3 className="text-sm">
+              <div key={group.kind} className="space-y-2 rounded-xl bg-muted/50 p-3.5">
+                <h3 className="text-sm font-medium">
                   {group.label}
                   <span className="ml-1.5 text-muted-foreground tabular-nums">{group.entries.length}</span>
                 </h3>

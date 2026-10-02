@@ -1,7 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { StatusDot, StatusPill, type Tone } from "@/components/status";
+import { Panel } from "@/components/panel";
+import { StatusIcon, StatusPill, type Tone } from "@/components/status";
 import { overdue, shortDate, upcoming, type Entry } from "@/features/cases/schema";
 import { KIND_WORD, addDays, daysBetween, fromToday, span } from "@/features/cases/words";
 import type { SectionProps } from "./schema";
@@ -14,16 +15,17 @@ const SOON = 7;
 const openClass =
   "cursor-pointer rounded-sm text-left font-serif text-[15px] leading-snug underline decoration-input underline-offset-2 outline-none hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring/50";
 
+/** One kind of thing to do, on its own card, headed by its colour and how many there are. */
 function Row({ label, count, tone, children }: { label: string; count: number; tone: Tone; children: ReactNode }) {
   return (
-    <div className="grid gap-x-6 gap-y-1 border-t py-3 sm:grid-cols-[10rem_minmax(0,1fr)]">
-      <h3 className="flex items-center gap-2 self-start text-sm font-medium">
-        <StatusDot tone={count > 0 ? tone : "done"} />
+    <Panel className="sm:p-5">
+      <h3 className="flex items-center gap-2 text-[15px] font-semibold">
+        <StatusIcon tone={count > 0 ? tone : "done"} className="size-4" />
         {label}
-        {count > 0 && <span className="ml-1.5 font-normal text-muted-foreground tabular-nums">{count}</span>}
+        {count > 0 && <span className="font-normal text-muted-foreground tabular-nums">{count}</span>}
       </h3>
-      <div className="min-w-0">{children}</div>
-    </div>
+      <div className="mt-3 min-w-0">{children}</div>
+    </Panel>
   );
 }
 
@@ -31,9 +33,9 @@ const Nothing = ({ children }: { children: ReactNode }) => <p className="text-sm
 
 function Items<T>({ items, render }: { items: T[]; render: (item: T) => ReactNode }) {
   return (
-    <ul className="max-w-[46rem] space-y-2.5">
+    <ul className="space-y-1">
       {items.map((item, index) => (
-        <li key={index} className="space-y-0.5">
+        <li key={index} className="space-y-1 rounded-lg bg-muted/50 px-4 py-3">
           {render(item)}
         </li>
       ))}
@@ -54,7 +56,7 @@ export function Attention({ file, stored, today }: SectionProps) {
       <h2 id="attention-heading" className="font-heading text-xl font-semibold tracking-tight">
         Needs attention
       </h2>
-      <div className="mt-3 border-b">
+      <div className="mt-3 space-y-4">
         <Row label="Overdue" count={late.length} tone="urgent">
           {late.length === 0 ? (
             <Nothing>No open task is past its due date.</Nothing>

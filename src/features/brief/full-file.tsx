@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { panelClass } from "@/components/panel";
 import { StatusPill } from "@/components/status";
 import { Input } from "@/components/ui/input";
 import { shortDate, type CaseFile, type Entry, type EntryKind } from "@/features/cases/schema";
@@ -65,13 +66,13 @@ export function FullFile({ file, today }: { file: CaseFile; today: string }) {
       </div>
 
       {entries.length === 0 ? (
-        <p className="mt-3 border-y py-3 text-sm text-muted-foreground">
+        <p className={cn(panelClass, "mt-3 p-5 text-sm text-muted-foreground")}>
           Clio holds no notes, emails, calls, tasks, calendar entries, expenses or documents on this matter.
         </p>
       ) : (
         <>
           <div className="mt-3 flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
-            <div role="group" aria-label="Kind of entry" className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+            <div role="group" aria-label="Kind of entry" className="flex flex-wrap gap-1.5 text-sm">
               {filters.map((filter) => (
                 <button
                   key={filter.label}
@@ -79,10 +80,10 @@ export function FullFile({ file, today }: { file: CaseFile; today: string }) {
                   aria-pressed={kind === filter.kind}
                   onClick={() => setKind(filter.kind)}
                   className={cn(
-                    "cursor-pointer border-b pb-0.5 outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+                    "cursor-pointer rounded-full border px-3 py-1 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/50",
                     kind === filter.kind
-                      ? "border-foreground font-medium text-foreground"
-                      : "border-transparent text-muted-foreground hover:text-foreground",
+                      ? "border-primary/20 bg-primary/10 font-medium text-primary"
+                      : "bg-card text-muted-foreground hover:text-foreground",
                   )}
                 >
                   {filter.label}
@@ -100,15 +101,15 @@ export function FullFile({ file, today }: { file: CaseFile; today: string }) {
             />
           </div>
 
-          <div className="mt-3 max-h-[70vh] overflow-y-auto border-y">
-            <div className={cn(columns, "sticky top-0 border-b bg-background py-1.5 text-xs text-muted-foreground")}>
+          <div className={cn(panelClass, "mt-3 max-h-[70vh] overflow-y-auto")}>
+            <div className={cn(columns, "sticky top-0 border-b bg-card px-4 py-2 text-xs text-muted-foreground")}>
               <span>Date</span>
               <span className="hidden md:block">Kind</span>
               <span>Title</span>
               <span className="hidden md:block">People</span>
             </div>
             {shown.length === 0 ? (
-              <p className="py-3 text-sm text-muted-foreground">
+              <p className="px-4 py-3 text-sm text-muted-foreground">
                 {query ? `Nothing in the file matches “${query}”${kind ? " among these entries" : ""}. ` : "There are no entries of this kind. "}
                 <button
                   type="button"
@@ -122,7 +123,7 @@ export function FullFile({ file, today }: { file: CaseFile; today: string }) {
                 </button>
               </p>
             ) : (
-              <ul className="divide-y">
+              <ul className="divide-y divide-border/60">
                 {shown.map((entry) => (
                   <li key={entry.ref}>
                     <button
@@ -130,7 +131,7 @@ export function FullFile({ file, today }: { file: CaseFile; today: string }) {
                       onClick={() => openRef(entry.ref)}
                       className={cn(
                         columns,
-                        "group w-full cursor-pointer items-baseline py-1.5 text-left text-sm outline-none focus-visible:bg-muted",
+                        "group w-full cursor-pointer items-baseline px-4 py-2 text-left text-sm outline-none hover:bg-muted/50 focus-visible:bg-muted",
                       )}
                     >
                       <span className="text-muted-foreground tabular-nums">{shortDate(entry.date, true)}</span>

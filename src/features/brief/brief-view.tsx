@@ -1,6 +1,8 @@
 import { Banknote, CalendarDays, Flag, FolderOpen, Info, LayoutDashboard, ListTodo, Stethoscope } from "lucide-react";
-import { overdue, upcoming, type CaseFile } from "@/features/cases/schema";
-import { addDays } from "@/features/cases/words";
+import { Panel } from "@/components/panel";
+import { StatusPill } from "@/components/status";
+import { overdue, shortDate, upcoming, type CaseFile } from "@/features/cases/schema";
+import { addDays, daysBetween } from "@/features/cases/words";
 import type { ShareStatus } from "@/features/shares/schema";
 import { Attention } from "./attention";
 import { CaseTabs, StatusTiles, type CaseTab } from "./case-tabs";
@@ -20,10 +22,13 @@ import { SourceLinks, SourceProvider } from "./source-panel";
 
 /** Days ahead that count as "this week" on the overview and the To do tab. */
 const WEEK = 7;
+/** A limitation date this close is shown in red, as it is under At a glance. */
+const LIMITATION_WARNING = 90;
 
 /**
- * A case: the header, then one tab per subject. The overview answers "where does it stand and
- * what needs me"; each other tab holds one part of the brief, so nothing has to be scrolled past.
+ * A case: who it is about and a menu of its parts in a side column, the open part beside it. The
+ * overview answers "where does it stand and what needs me"; each other part holds one subject of
+ * the brief, so nothing has to be scrolled past.
  * Without a brief: the file as read from Clio and the control that writes the brief.
  */
 export function BriefView({
@@ -63,49 +68,83 @@ export function BriefView({
   const flagsOf = (weight: string) => brief.flags.filter((flag) => weightOf(flag.weight) === weight).length;
   const owedRecords = brief.people.filter((person) => person.treating && person.owes.trim() !== "").length;
 
+  const untilLimitation = file.limitationDate ? daysBetween(today, file.limitationDate) : Number.NaN;
+
+  // What must stay in view whatever part is open: the deadline that can end the case, and what is late.
+  const vitals = (
+    <dl className="space-y-3 text-sm">
+      <div className="space-y-1">
+        <dt className="text-xs text-muted-foreground">Limitation date</dt>
+        <dd>
+          {Number.isNaN(untilLimitation) ? (
+            <span className="text-muted-foreground">Not in Clio</span>
+          ) : untilLimitation >= 0 && untilLimitation <= LIMITATION_WARNING ? (
+            <StatusPill tone="urgent">{shortDate(file.limitationDate, true)}</StatusPill>
+          ) : (
+            <span className="font-serif">
+              {shortDate(file.limitationDate, true)}
+              {untilLimitation < 0 && <span className="ml-1 font-sans text-xs text-muted-foreground">passed</span>}
+            </span>
+          )}
+        </dd>
+      </div>
+      <div className="space-y-1">
+        <dt className="text-xs text-muted-foreground">Overdue tasks</dt>
+        <dd>
+          <StatusPill tone={late.length > 0 ? "urgent" : "done"}>{late.length > 0 ? `${late.length} overdue` : "None"}</StatusPill>
+        </dd>
+      </div>
+    </dl>
+  );
+
   const overview = (
-    <div className="space-y-10">
-      <StatusTiles
-        tiles={[
-          { tab: "todo", label: "Overdue", count: late.length, tone: "urgent", some: "Tasks past their due date", none: "Nothing is overdue" },
-          {
-            tab: "todo",
-            label: "Due this week",
-            count: thisWeek.length,
-            tone: "mild",
-            some: `Tasks and appointments, next ${WEEK} days`,
-            none: `Nothing due in the next ${WEEK} days`,
-          },
-          {
-            tab: "todo",
-            label: "Waiting on others",
-            count: brief.waiting.length,
-            tone: "mild",
-            some: "Requests the firm is still waiting on",
-            none: "Nobody owes the firm anything",
-          },
-          { tab: "flags", label: "High red flags", count: flagsOf("high"), tone: "urgent", some: "Weaknesses to deal with first", none: "No high red flags" },
-        ]}
-      />
-      <section aria-label="The bottom line" className="max-w-[46rem] space-y-2">
-        {brief.bottomLine.text ? (
-          <>
-            <p className="font-serif text-2xl leading-snug text-pretty">{brief.bottomLine.text}</p>
-            <SourceLinks evidence={brief.bottomLine.evidence} />
-          </>
-        ) : (
-          <p className="text-sm text-muted-foreground">The brief gives no bottom line. Update the brief to write one.</p>
-        )}
-      </section>
-      {(brief.incident.text || file.description) && (
-        <section aria-labelledby="incident-heading" className="max-w-prose space-y-1.5">
-          <h2 id="incident-heading" className="text-sm font-medium text-muted-foreground">
-            What happened
+    <div className="space-y-8">
+      <div className="space-y-4">
+        <StatusTiles
+          tiles={[
+            { tab: "todo", label: "Overdue", count: late.length, tone: "urgent", some: "Tasks past their due date", none: "Nothing is overdue" },
+            {
+              tab: "todo",
+              label: "Due this week",
+              count: thisWeek.length,
+              tone: "mild",
+              some: `Tasks and appointments, next ${WEEK} days`,
+              none: `Nothing due in the next ${WEEK} days`,
+            },
+            {
+              tab: "todo",
+              label: "Waiting on others",
+              count: brief.waiting.length,
+              tone: "mild",
+              some: "Requests the firm is still waiting on",
+              none: "Nobody owes the firm anything",
+            },
+            { tab: "flags", label: "High red flags", count: flagsOf("high"), tone: "urgent", some: "Weaknesses to deal with first", none: "No high red flags" },
+          ]}
+        />
+        <section aria-labelledby="bottom-line" className="space-y-3 rounded-2xl border border-primary/15 bg-primary/[0.04] p-6">
+          <h2 id="bottom-line" className="text-sm font-medium text-primary">
+            The bottom line
           </h2>
-          <p className="font-serif text-[17px] leading-snug">{brief.incident.text || file.description}</p>
-          {brief.incident.text && <SourceLinks evidence={brief.incident.evidence} />}
+          {brief.bottomLine.text ? (
+            <>
+              <p className="max-w-[46rem] font-serif text-2xl leading-snug text-pretty">{brief.bottomLine.text}</p>
+              <SourceLinks evidence={brief.bottomLine.evidence} />
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">The brief gives no bottom line. Update the brief to write one.</p>
+          )}
         </section>
-      )}
+        {(brief.incident.text || file.description) && (
+          <Panel aria-labelledby="incident-heading" role="region" className="space-y-1.5">
+            <h2 id="incident-heading" className="text-sm font-medium text-muted-foreground">
+              What happened
+            </h2>
+            <p className="max-w-prose font-serif text-[17px] leading-snug">{brief.incident.text || file.description}</p>
+            {brief.incident.text && <SourceLinks evidence={brief.incident.evidence} />}
+          </Panel>
+        )}
+      </div>
       <Glance {...section} />
       <SinceStrip file={file} today={today} />
     </div>
@@ -133,31 +172,50 @@ export function BriefView({
       ],
       content: <Flags {...section} />,
     },
-    { id: "money", label: "Money", icon: <Banknote />, content: <Money {...section} /> },
-    { id: "timeline", label: "Timeline", icon: <CalendarDays />, content: <Moments {...section} /> },
+    {
+      id: "money",
+      label: "Money",
+      startsGroup: true,
+      icon: <Banknote />,
+      content: (
+        <Panel>
+          <Money {...section} />
+        </Panel>
+      ),
+    },
+    {
+      id: "timeline",
+      label: "Timeline",
+      icon: <CalendarDays />,
+      content: (
+        <Panel>
+          <Moments {...section} />
+        </Panel>
+      ),
+    },
     {
       id: "medical",
       label: "Medical",
       icon: <Stethoscope />,
       badges: [{ tone: "mild", count: owedRecords, label: "providers owe the firm records" }],
       content: (
-        <div className="space-y-12">
+        <div className="space-y-8">
           <Injuries {...section} />
           <Providers {...section} />
         </div>
       ),
     },
-    { id: "file", label: "Full file", icon: <FolderOpen />, content: <FullFile file={file} today={today} /> },
+    { id: "file", label: "Full file", icon: <FolderOpen />, startsGroup: true, content: <FullFile file={file} today={today} /> },
     { id: "about", label: "How it was made", icon: <Info />, content: <HowMade {...section} /> },
   ];
 
   return (
     <SourceProvider file={file}>
-      <div className="space-y-8">
-        <CaseHeader file={file} photoUrl={photoUrl} />
-        {!stored.current && <ReadCase matterId={file.matterId} situation="stale" />}
-        <CaseTabs tabs={tabs} />
-      </div>
+      <CaseTabs
+        side={<CaseHeader file={file} photoUrl={photoUrl} vitals={vitals} />}
+        notice={!stored.current && <ReadCase matterId={file.matterId} situation="stale" />}
+        tabs={tabs}
+      />
     </SourceProvider>
   );
 }

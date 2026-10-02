@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { panelClass } from "@/components/panel";
 import { StatusPill } from "@/components/status";
 import { buttonVariants } from "@/components/ui/button";
 import { byRef, parseSource, shortDate, type CaseFile, type Entry } from "@/features/cases/schema";
@@ -49,9 +50,9 @@ export function Providers({ file, stored, shares, today }: SectionProps) {
           )}
         </div>
         {treating.length === 0 ? (
-          <p className="border-y py-3 text-sm text-muted-foreground">The brief names no treating providers on this case.</p>
+          <p className={cn(panelClass, "p-5 text-sm text-muted-foreground")}>The brief names no treating providers on this case.</p>
         ) : (
-          <div className="divide-y border-y">
+          <div className={cn(panelClass, "space-y-1 p-2")}>
             {treating.map((joined, index) => (
               <ProviderRow key={`${joined.ref}-${index}`} joined={joined} file={file} shares={shares} today={today} />
             ))}
@@ -64,11 +65,11 @@ export function Providers({ file, stored, shares, today }: SectionProps) {
           Others on the case
         </h3>
         {others.length === 0 ? (
-          <p className="border-y py-3 text-sm text-muted-foreground">The brief names nobody else on this case.</p>
+          <p className={cn(panelClass, "p-5 text-sm text-muted-foreground")}>The brief names nobody else on this case.</p>
         ) : (
-          <div className="divide-y border-y">
+          <div className={cn(panelClass, "space-y-1 p-2")}>
             {others.map(({ person, ref, entry }, index) => (
-              <div key={`${ref}-${index}`} className="grid gap-x-6 gap-y-1 py-3 sm:grid-cols-[minmax(0,15rem)_minmax(0,1fr)]">
+              <div key={`${ref}-${index}`} className="grid gap-x-6 gap-y-1.5 rounded-lg bg-muted/50 px-4 py-3 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)]">
                 <Who person={person} entry={entry} />
                 <div className="space-y-1">
                   {person.did ? (
@@ -109,7 +110,7 @@ function ProviderRow({
     .sort((a, b) => b.at.localeCompare(a.at));
 
   return (
-    <div className="grid gap-x-6 gap-y-3 py-4 sm:grid-cols-[minmax(0,15rem)_minmax(0,1fr)]">
+    <div className="grid gap-x-6 gap-y-3 rounded-lg bg-muted/50 p-4 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)]">
       <Who person={person} entry={entry} details />
 
       <div className="space-y-2">

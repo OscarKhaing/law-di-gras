@@ -1,5 +1,6 @@
 import { byRef, parseSource } from "@/features/cases/schema";
-import { StatusDot, StatusPill, type Tone } from "@/components/status";
+import { panelClass } from "@/components/panel";
+import { StatusPill, type Tone } from "@/components/status";
 import { cn } from "@/lib/utils";
 import type { SectionProps } from "./schema";
 import { SourceLinks } from "./source-panel";
@@ -9,6 +10,7 @@ type Weight = (typeof WEIGHTS)[number];
 
 const LABEL: Record<Weight, string> = { high: "High", medium: "Medium", low: "Low" };
 const TONE: Record<Weight, Tone> = { high: "urgent", medium: "mild", low: "neutral" };
+const EDGE: Record<Weight, string> = { high: "border-l-urgent", medium: "border-l-mild", low: "border-l-input" };
 
 /** The model's weight is a free string: anything other than high or low counts as medium. */
 export function weightOf(raw: string): Weight {
@@ -44,27 +46,26 @@ export function Flags({ file, stored }: SectionProps) {
       </div>
 
       {flags.length === 0 ? (
-        <p className="border-y py-3 text-sm text-muted-foreground">The brief raises no red flags on this case.</p>
+        <p className={cn(panelClass, "p-5 text-sm text-muted-foreground")}>The brief raises no red flags on this case.</p>
       ) : (
-        <div className="divide-y border-y">
+        <div className="space-y-4">
           {groups.map((group) => (
-            <div key={group.weight} className="grid gap-x-6 gap-y-2 py-4 sm:grid-cols-[7.5rem_minmax(0,1fr)]">
-              <h3 className="flex items-center gap-2 self-start text-sm sm:pt-0.5">
+            <div key={group.weight} className={cn(panelClass, "space-y-3 p-3 sm:p-4")}>
+              <h3 className="flex items-center gap-2 px-1 text-sm">
                 <StatusPill tone={TONE[group.weight]}>{LABEL[group.weight]}</StatusPill>
                 <span className="text-muted-foreground tabular-nums">{group.flags.length}</span>
               </h3>
-              <ul className="space-y-5">
+              <ul className="space-y-1">
                 {group.flags.map((flag, index) => (
-                  <li key={index} className="space-y-1.5">
+                  <li key={index} className={cn("space-y-1.5 rounded-lg border-l-4 bg-muted/50 px-4 py-3.5", EDGE[group.weight])}>
                     <h4
                       className={cn(
-                        "flex items-baseline gap-2 text-pretty",
+                        "text-pretty",
                         group.weight === "high" && "text-[17px] leading-snug font-semibold",
                         group.weight === "medium" && "text-[15px] leading-snug font-medium",
                         group.weight === "low" && "text-sm",
                       )}
                     >
-                      <StatusDot tone={TONE[group.weight]} className="relative -top-px" />
                       {flag.title}
                     </h4>
                     {flag.detail && (
