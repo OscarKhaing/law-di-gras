@@ -56,6 +56,7 @@ export function HowMade({ file, stored, index, today }: SectionProps) {
 
   return (
     <Disclosure
+      open
       title="How this brief was made"
       remark={`Written ${dayAt(stored.createdAt, today)}${stored.current ? ", current with Clio" : ", Clio has changed since"}`}
       className="text-sm text-muted-foreground [&_summary>span:first-child]:text-foreground"

@@ -32,14 +32,17 @@ export function Disclosure({
   remark,
   children,
   className,
+  open = false,
 }: {
   title: string;
   remark?: string;
   children: ReactNode;
   className?: string;
+  /** Start opened: for a part of the case the reader has already chosen to look at. */
+  open?: boolean;
 }) {
   return (
-    <details className={cn("group/more border-y", className)}>
+    <details open={open} className={cn("group/more border-y", className)}>
       <summary className="flex cursor-pointer list-none items-baseline gap-x-3 rounded-sm py-2.5 outline-none focus-visible:ring-2 focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden">
         <span className="font-heading text-lg font-semibold tracking-tight">{title}</span>
         {remark && <span className="text-sm text-muted-foreground">{remark}</span>}

@@ -67,9 +67,9 @@ export function SinceStrip({ file, today }: { file: CaseFile; today: string }) {
 
   if (visit.status === "checking") {
     return (
-      <section aria-label="What is new" className="border-l-2 border-marker bg-marker-soft px-4 py-3" role="status">
+      <section aria-label="What is new" className="rounded-2xl border bg-card px-5 py-4 shadow-xs" role="status">
         <p className="text-sm text-muted-foreground">Checking what is new since you last opened this case</p>
-        <Skeleton className="mt-2 h-4 w-2/3 bg-marker/40" />
+        <Skeleton className="mt-2 h-4 w-2/3" />
       </section>
     );
   }
@@ -111,8 +111,8 @@ export function SinceStrip({ file, today }: { file: CaseFile; today: string }) {
   ];
 
   return (
-    <section aria-labelledby="since-heading" className="border-l-2 border-marker">
-      <div className="bg-marker-soft px-4 py-2.5">
+    <section aria-labelledby="since-heading" className="overflow-hidden rounded-2xl border bg-card shadow-xs">
+      <div className="bg-muted/60 px-5 py-3">
         <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
           <h2 id="since-heading" className="font-heading text-lg leading-snug font-semibold tracking-tight">
             {heading}

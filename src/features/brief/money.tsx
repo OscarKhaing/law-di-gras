@@ -78,7 +78,9 @@ function scaleSteps(top: number): number[] {
  * figure as a marker line drawn down through the bars, so a reader sees at once which figures sit
  * inside the coverage and which run past it. The firm's own spend, summed in code, sits underneath.
  */
-export function Money({ file, stored }: SectionProps) {
+export function Money({ file, stored, overview = false }: SectionProps & { /** On the overview, beside its own part of the case. */ overview?: boolean }) {
+  // Both are on the page at once (parts stay mounted), so each needs its own heading id.
+  const headingId = overview ? "worth-and-coverage-overview" : "worth-and-coverage";
   const [listed, setListed] = useState<Kind[]>([]);
   const figures = stored.brief.money;
   const largestFirst = (kind: Kind) =>
@@ -93,9 +95,9 @@ export function Money({ file, stored }: SectionProps) {
   const limit = lines[0]?.figure ?? null;
 
   return (
-    <section aria-labelledby="worth-and-coverage" className="space-y-3">
+    <section aria-labelledby={headingId} className="space-y-3">
       <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-        <h2 id="worth-and-coverage" className="font-heading text-xl font-semibold tracking-tight">
+        <h2 id={headingId} className="font-heading text-xl font-semibold tracking-tight">
           Worth and coverage
         </h2>
         {figures.length > 0 && (

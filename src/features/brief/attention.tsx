@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { StatusDot, StatusPill, type Tone } from "@/components/status";
+import { StatusIcon, StatusPill, type Tone } from "@/components/status";
 import { overdue, shortDate, upcoming } from "@/features/cases/schema";
 import { KIND_WORD, addDays, daysBetween, fromToday, span } from "@/features/cases/words";
 import { useFold } from "./fold";
@@ -34,7 +34,7 @@ function Ledger<T>({
   return (
     <div className="min-w-0 border-t py-2.5">
       <h3 className="flex items-center gap-2 text-sm font-medium">
-        <StatusDot tone={items.length > 0 ? tone : "done"} />
+        <StatusIcon tone={items.length > 0 ? tone : "done"} className="size-4" />
         {label}
         {items.length > 0 && <span className="ml-1.5 font-normal text-muted-foreground tabular-nums">{items.length}</span>}
       </h3>

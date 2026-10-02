@@ -85,17 +85,19 @@
   /* Marker yellow: evidence quoted from a document, and anything a person must look at. */
   --marker: #ffe680;
   --marker-soft: #fff8d9;
-  /* Status, and only status: red is urgent, orange is worth a look soon, green is done or all clear.
-     Each has a solid colour for dots and bars, an ink for words, and a soft ground behind them. */
-  --urgent: #dc3b22;
-  --urgent-ink: #a8260f;
+  /* Status, and only status: red is urgent, yellow is worth a look soon, green is done or all clear.
+     Each has a solid colour for count badges and bars, an ink for words and icons, and a soft ground.
+     The inks differ in lightness and green leans blue, so the three stay apart for red-green colour
+     blindness; status is also always given an icon and words, never colour alone. */
+  --urgent: #d63820;
+  --urgent-ink: #821e0d;
   --urgent-soft: #fde9e5;
   --mild: #e8830c;
   --mild-ink: #8a4700;
   --mild-soft: #fdead3;
-  --done: #2e9d5b;
-  --done-ink: #1a6b3c;
-  --done-soft: #e1f4e8;
+  --done: #1a9a7d;
+  --done-ink: #116149;
+  --done-soft: #dff3ec;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -134,9 +136,9 @@
   --mild: #f29a3d;
   --mild-ink: #ffc58a;
   --mild-soft: rgb(242 154 61 / 14%);
-  --done: #4cc282;
-  --done-ink: #95e2b8;
-  --done-soft: rgb(76 194 130 / 14%);
+  --done: #3cc4a3;
+  --done-ink: #8fe3cd;
+  --done-soft: rgb(60 196 163 / 14%);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
