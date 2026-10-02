@@ -3,7 +3,7 @@
 import { CallButton } from "@/features/calls/call-button";
 import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
-import { CheckIcon } from "lucide-react";
+import { CheckIcon, MailIcon, SendIcon } from "lucide-react";
 import { StatusPill, type Tone } from "@/components/status";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +24,7 @@ import {
 import { KIND_WORD, daysBetween, fromToday, span } from "@/features/cases/words";
 import { fetchJson } from "@/lib/fetch-json";
 import { useOpenTab } from "./case-tabs";
-import { foldClass, useFold } from "./fold";
+import { useFold } from "./fold";
 import type { CheckedBrief, CheckedEvidence, SectionProps } from "./schema";
 import { SourceLinks, useSource } from "./source-panel";
 
@@ -330,6 +330,12 @@ function ChaseRow({
         <p className="text-xs leading-5 text-muted-foreground first-letter:uppercase">
           {row.role || (party.contact ? "" : "Not a contact on the matter in Clio")}
         </p>
+        {/* How long it has been quiet sits with who it is about, so the right column holds only what can be done. */}
+        {words && (
+          <p className="mt-1.5">
+            <StatusPill tone={toneOf(row.days)}>{words}</StatusPill>
+          </p>
+        )}
       </div>
 
       <div className="min-w-0 space-y-1.5">
@@ -379,8 +385,7 @@ function ChaseRow({
         </dl>
       </div>
 
-      <div className="flex flex-col items-start gap-1.5 md:items-end">
-        {words && <StatusPill tone={toneOf(row.days)}>{words}</StatusPill>}
+      <div className="flex flex-col items-start gap-1.5 md:items-stretch [&>*]:md:justify-start">
         {!row.canDraft ? (
           <p className="max-w-[13rem] text-xs leading-snug text-muted-foreground md:text-right">
             No follow-up to draft: the brief cites no message the firm sent about this, and this is not the client or a
@@ -390,17 +395,23 @@ function ChaseRow({
             </button>
           </p>
         ) : state?.status === "ready" ? (
-          <Button size="sm" variant="outline" aria-expanded={state.open} onClick={() => onChange({ open: !state.open })}>
+          <Button size="sm" variant="outline" className="bg-card" aria-expanded={state.open} onClick={() => onChange({ open: !state.open })}>
+            <MailIcon aria-hidden />
             {state.open ? "Close the draft" : "Open the draft"}
           </Button>
         ) : (
-          <Button size="sm" variant="outline" disabled={state?.status === "drafting"} onClick={onDraft}>
+          <Button size="sm" variant="outline" className="bg-card" disabled={state?.status === "drafting"} onClick={onDraft}>
+            <MailIcon aria-hidden />
             {state?.status === "drafting" ? "Drafting" : "Draft a follow-up"}
           </Button>
         )}
         {row.treating && party.contact && (
-          <Link href={`/cases/${clioMatterId(file.matterId)}/providers/${party.contact.ref}`} className={foldClass}>
-            Prepare update
+          <Link
+            href={`/cases/${clioMatterId(file.matterId)}/providers/${party.contact.ref}`}
+            className="inline-flex h-7 items-center gap-1.5 rounded-md border bg-card px-2.5 text-[0.8rem] font-medium whitespace-nowrap outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50 [&_svg]:size-3.5"
+          >
+            <SendIcon aria-hidden />
+            Share an update
           </Link>
         )}
         {party.contact && (

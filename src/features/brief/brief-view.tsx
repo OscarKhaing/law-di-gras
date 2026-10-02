@@ -1,4 +1,4 @@
-import { Banknote, CalendarDays, Clock, Flag, FolderOpen, Info, LayoutDashboard, ListTodo, Stethoscope } from "lucide-react";
+import { Banknote, CalendarDays, Clock, Flag, FolderOpen, Info, LayoutDashboard, ListTodo, Phone, Stethoscope } from "lucide-react";
 import { Panel } from "@/components/panel";
 import { StatusPill } from "@/components/status";
 import { overdue, shortDate, upcoming, type CaseFile } from "@/features/cases/schema";
@@ -190,9 +190,6 @@ export function BriefView({
             <Chase {...section} />
           </Panel>
           <Panel>
-            <CallHistory calls={calls} />
-          </Panel>
-          <Panel>
             <Attention {...section} />
           </Panel>
         </div>
@@ -229,6 +226,16 @@ export function BriefView({
             <Money {...section} />
           </Panel>
         </div>
+      ),
+    },
+    {
+      id: "calls",
+      label: "Calls",
+      icon: <Phone />,
+      content: (
+        <Panel>
+          <CallHistory calls={calls} />
+        </Panel>
       ),
     },
     {

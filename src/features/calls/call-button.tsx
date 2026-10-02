@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
+import { PhoneIcon } from "lucide-react";
 import type { Call, Device } from "@twilio/voice-sdk";
 import { CallPanel, type Phase } from "./call-panel";
 import type { CallLog } from "./schema";
@@ -58,7 +59,7 @@ const ROW_WORDS: Record<Phase["step"], string> = {
 };
 
 const controlClass =
-  "cursor-pointer rounded-sm text-left text-sm font-medium text-primary underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-default disabled:text-muted-foreground disabled:no-underline";
+  "inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-md border bg-card px-2.5 text-[0.8rem] font-medium whitespace-nowrap outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-default disabled:opacity-50 [&_svg]:size-3.5";
 
 /**
  * "Call" beside a contact: places a call through Case Desk and shows it while it runs.
@@ -297,16 +298,19 @@ export function CallButton({
           type="button"
           className={controlClass}
           disabled={busyElsewhere}
-          title={busyElsewhere ? "Hang up and close the other call first." : undefined}
+          title={busyElsewhere ? "Hang up and close the other call first." : held ? undefined : "Clio holds no number for this contact; you can type one."}
           aria-label={held ? `Call ${contactName} on ${held}` : `Call ${contactName} on another number`}
           onClick={open}
         >
-          {held ? "Call" : "Call another number"}
+          <PhoneIcon aria-hidden />
+          {held ? "Call" : "Call a number"}
         </button>
       )}
-      <p className="text-xs leading-4 text-muted-foreground">
-        {held ? <span className="font-serif tabular-nums">{held}</span> : "No number in Clio"}
-      </p>
+      {held && (
+        <p className="text-xs leading-4 text-muted-foreground">
+          <span className="font-serif tabular-nums">{held}</span>
+        </p>
+      )}
 
       {mine && phase && (
         <CallPanel
