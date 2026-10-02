@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { FolderOpenIcon, ScaleIcon } from "lucide-react";
-import { CountBadge, type Tone } from "@/components/status";
+import type { Tone } from "@/components/status";
 import {
   Sidebar,
   SidebarContent,
@@ -20,15 +20,22 @@ import { WORKLISTS, type ListedCase, type WorklistId } from "@/features/brief/sc
 /** How pressing a worklist is when it has a case on it. */
 const TONE: Record<WorklistId, Tone> = { overdue: "urgent", provider: "mild", "other-side": "mild", limits: "mild", sol: "urgent" };
 
+const COUNT: Record<Tone, string> = { urgent: "text-urgent-ink", mild: "text-mild-ink", done: "text-done-ink", neutral: "text-muted-foreground" };
+
 /**
- * The firm's way around: the cases, the worklists that say which of them need something (each one
- * narrows the case list), and the cases themselves. The counts come from what is stored, so they
- * are as fresh as the last read of Clio.
+ * The firm's way around, and it is always about ALL the cases: the worklists say how many cases need
+ * something (each one narrows the case list), then the cases themselves. What needs doing inside one
+ * case is on that case's own menu, beside its brief. To keep the two apart, everything here is
+ * counted in cases, and while a case is open the lists it is on are marked. The counts come from
+ * what is stored, so they are as fresh as the last read of Clio.
  */
 export function AppSidebar({ cases }: { cases: ListedCase[] }) {
   const pathname = usePathname();
   const show = useSearchParams().get("show");
   const onList = pathname === "/";
+  // The case that is open, if any: /cases/<id>, or its fresh read at /cases/-<id>.
+  const openId = Math.abs(Number(pathname.match(/^\/cases\/(-?\d+)/)?.[1] ?? 0));
+  const openCase = cases.find((item) => item.matterId === openId);
 
   return (
     <Sidebar>
@@ -40,6 +47,7 @@ export function AppSidebar({ cases }: { cases: ListedCase[] }) {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
+          <SidebarGroupLabel>Across all cases</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
@@ -53,33 +61,45 @@ export function AppSidebar({ cases }: { cases: ListedCase[] }) {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>Needs attention</SidebarGroupLabel>
+          <SidebarGroupLabel>Cases that need attention</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {WORKLISTS.map((list) => {
                 const count = cases.filter((item) => item.lists.includes(list.id)).length;
+                const includesOpen = openCase?.lists.includes(list.id) ?? false;
                 return (
                   <SidebarMenuItem key={list.id}>
-                    <SidebarMenuButton isActive={onList && show === list.id} render={<Link href={`/?show=${list.id}`} />}>
-                      <span className={count === 0 ? "text-muted-foreground" : undefined}>{list.label}</span>
-                      <span className="ml-auto">
-                        {count > 0 ? (
-                          <CountBadge tone={TONE[list.id]} count={count} label={count === 1 ? "case" : "cases"} />
-                        ) : (
-                          <span className="pr-1.5 text-xs text-muted-foreground tabular-nums">0</span>
-                        )}
+                    <SidebarMenuButton
+                      isActive={onList && show === list.id}
+                      title={includesOpen ? `${openCase?.client} is on this list` : undefined}
+                      render={<Link href={`/?show=${list.id}`} />}
+                    >
+                      {/* A dot marks the lists the open case is on, tying this sidebar to the case beside it. */}
+                      <span aria-hidden className={`size-1.5 shrink-0 rounded-full ${includesOpen ? "bg-primary" : "bg-transparent"}`} />
+                      <span className={count === 0 ? "text-muted-foreground" : undefined}>
+                        {list.label}
+                        {includesOpen && <span className="sr-only"> (includes the case that is open)</span>}
+                      </span>
+                      <span className={`ml-auto text-xs whitespace-nowrap tabular-nums ${count > 0 ? `font-medium ${COUNT[TONE[list.id]]}` : "text-muted-foreground"}`}>
+                        {count === 0 ? "none" : count === 1 ? "1 case" : `${count} cases`}
                       </span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
               })}
             </SidebarMenu>
+            {openCase && openCase.lists.length > 0 && (
+              <p className="flex items-center gap-2 px-2 pt-2 text-xs text-muted-foreground">
+                <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-primary" />
+                Lists the open case is on
+              </p>
+            )}
           </SidebarGroupContent>
         </SidebarGroup>
 
         {cases.length > 0 && (
           <SidebarGroup>
-            <SidebarGroupLabel>Cases read</SidebarGroupLabel>
+            <SidebarGroupLabel>Cases</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {cases.map((item) => (
