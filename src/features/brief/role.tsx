@@ -28,9 +28,10 @@ export const READING_ORDER: Record<Role, string[][]> = {
     ["timeline", "medical", "todo", "calls"],
     ["file", "about"],
   ],
+  // Every reader lands on the overview; what differs is what comes next.
   "case-manager": [
-    ["todo", "calls", "medical", "timeline"],
-    ["overview", "money", "time", "flags"],
+    ["overview", "todo", "calls", "medical"],
+    ["timeline", "money", "time", "flags"],
     ["file", "about"],
   ],
 };
