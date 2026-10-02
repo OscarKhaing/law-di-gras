@@ -1,5 +1,16 @@
 import { cn } from "@/lib/utils";
 
+const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
+
+/** Text from Clio can carry HTML character codes (`&quot;`, `&#39;`); write them as the characters they stand for. */
+export function decodeEntities(text: string) {
+  return text.replace(/&(?:#(\d+)|#x([0-9a-f]+)|([a-z]+));/gi, (whole, decimal, hex, name) => {
+    if (decimal) return String.fromCodePoint(Number(decimal));
+    if (hex) return String.fromCodePoint(parseInt(hex, 16));
+    return ENTITIES[name.toLowerCase()] ?? whole;
+  });
+}
+
 /** A passage quoted from the record, drawn as a marker stroke; brighter while it is the one shown. */
 export function Quote({ text, lit = false, className }: { text: string; lit?: boolean; className?: string }) {
   return (
@@ -11,7 +22,7 @@ export function Quote({ text, lit = false, className }: { text: string; lit?: bo
       )}
     >
       {/* Dot leaders ("Total ........ $5.00") are shortened so the quote reads as a sentence. */}
-      {text.replace(/\s*\.{4,}\s*/g, " … ")}
+      {decodeEntities(text).replace(/\s*\.{4,}\s*/g, " … ")}
     </mark>
   );
 }

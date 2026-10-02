@@ -1,10 +1,7 @@
 // End-to-end check of the LLM layer against the real API: `pnpm check-llm`.
-// Exercises every path the app uses: plain completion, streaming, structured output, and document
-// extraction from a PDF (including page references).
-import { readFile } from "node:fs/promises";
+// Exercises every path the app uses: plain completion, streaming and structured output. Reading a
+// PDF is checked with `pnpm -s script scripts/index-documents.ts --local <file.pdf>`.
 import { z } from "zod";
-import { needsReview } from "../src/features/documents/schema";
-import { extractDocument } from "../src/features/documents/server";
 import { complete, describeError, extract, MODEL, ping, streamText } from "../src/server/llm";
 
 const checks: [name: string, run: () => Promise<string>][] = [
@@ -54,22 +51,6 @@ const checks: [name: string, run: () => Promise<string>][] = [
       });
       if (data.client !== "Riley Sample") throw new Error(`wrong client: ${JSON.stringify(data)}`);
       return JSON.stringify(data);
-    },
-  ],
-  [
-    "document extraction",
-    async () => {
-      const name = "public/demo/sample-medical-record.pdf";
-      const bytes = await readFile(name);
-      const { fields } = (await extractDocument({ name, mediaType: "application/pdf", bytes })).data;
-      const value = (label: string) => fields.find((field) => field.label === label)?.value ?? "";
-      if (!value("Client").includes("Riley Sample")) throw new Error(`wrong client: ${value("Client")}`);
-      if (value("Date of incident") !== "2026-03-14") throw new Error(`wrong date: ${value("Date of incident")}`);
-      // The MRI is on page 7 of the file, which is stamped RS-000107: the page must be the position
-      // in the file, because that is what the review screen jumps to.
-      const mri = fields.find((field) => field.label === "Treatment" && /MRI/i.test(field.value));
-      if (mri?.page !== 7) throw new Error(`expected the MRI on page 7, got ${JSON.stringify(mri)}`);
-      return `${fields.length} fields, ${fields.filter(needsReview).length} flagged for review`;
     },
   ],
 ];

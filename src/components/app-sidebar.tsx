@@ -16,7 +16,7 @@ import {
 
 const NAV = [
   { href: "/", label: "Cases", icon: FolderOpenIcon },
-  { href: "/playground", label: "LLM playground", icon: FlaskConicalIcon },
+  { href: "/playground", label: "Connection checks", icon: FlaskConicalIcon },
 ];
 
 export function AppSidebar() {
