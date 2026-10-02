@@ -236,7 +236,8 @@ export function Chase({ file, stored, today }: SectionProps) {
   };
 
   return (
-    <section aria-labelledby="chase-heading" className="space-y-3">
+    /* data-look: the "Waiting on others" tile on the overview brings the reader here. */
+    <section data-look="waiting" aria-labelledby="chase-heading" className="space-y-3">
       <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
         <h2 id="chase-heading" className="font-heading text-xl font-semibold tracking-tight">
           Waiting on others

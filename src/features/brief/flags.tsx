@@ -45,7 +45,11 @@ export function Flags({ file, stored }: SectionProps) {
           {shown.map((flag, index) => {
             const weight = weightOf(flag.weight);
             return (
-              <li key={index} className="grid gap-x-8 gap-y-2 py-2.5 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+              <li
+                key={index}
+                data-look={weight === "high" ? "flags-high" : undefined}
+                className="grid gap-x-8 gap-y-2 px-1 py-2.5 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]"
+              >
                 <div className="space-y-1">
                   <h3 className="flex items-baseline gap-2 text-[15px] leading-snug font-semibold text-pretty">
                     <span className="shrink-0" title={`${LABEL[weight]} weight`}>

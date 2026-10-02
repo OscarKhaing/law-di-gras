@@ -6,6 +6,7 @@ import { changedSince, shortDate, type CaseFile, type Entry, type EntryKind } fr
 import { KIND_WORD, addDays } from "@/features/cases/words";
 import { postJson } from "@/lib/fetch-json";
 import { cn } from "@/lib/utils";
+import { useArrived } from "./arrived";
 import { useSource } from "./source-panel";
 
 type Visit = { status: "checking" } | { status: "known"; previous: string | null } | { status: "failed"; message: string };
@@ -50,6 +51,8 @@ function whenOpened(iso: string, today: string) {
 /** What has been added to the case since this reader last opened it, or in the last 30 or 90 days. */
 export function SinceStrip({ file, today }: { file: CaseFile; today: string }) {
   const { openRef } = useSource();
+  // What a "Check Clio" just brought in slides into the list and is marked, so the reader sees what is new.
+  const arrived = useArrived(file.entries.map((entry) => entry.ref));
   const [visit, setVisit] = useState<Visit>({ status: "checking" });
   const [chosen, setChosen] = useState<Range | null>(null);
   const [all, setAll] = useState(false);
@@ -158,13 +161,19 @@ export function SinceStrip({ file, today }: { file: CaseFile; today: string }) {
           <p className="py-2 text-sm">{counts.join(", ")}</p>
           <ul className={cn("divide-y border-t", all && "max-h-80 overflow-y-auto")}>
             {shown.map((entry) => (
-              <li key={entry.ref} className="grid grid-cols-[3.25rem_4rem_minmax(0,1fr)] items-baseline gap-x-2 py-1">
+              <li
+                key={entry.ref}
+                className={cn(
+                  "grid grid-cols-[3.25rem_4rem_minmax(0,1fr)] items-baseline gap-x-2 px-1 py-1",
+                  arrived.has(entry.ref) && "look-here animate-in duration-500 fade-in slide-in-from-left-2 motion-reduce:animate-none",
+                )}
+              >
                 <span className="text-xs text-muted-foreground tabular-nums">{shortDate(entry.date)}</span>
                 <span className="text-xs text-muted-foreground">{KIND_WORD[entry.kind]}</span>
                 <button
                   type="button"
                   title={entry.title}
-                  onClick={() => openRef(entry.ref)}
+                  onClick={(event) => openRef(entry.ref, event.currentTarget)}
                   className="cursor-pointer truncate rounded-sm text-left font-serif text-sm leading-5 underline decoration-input underline-offset-2 outline-none hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
                 >
                   {entry.title || "Untitled"}

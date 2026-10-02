@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Quote, decodeEntities } from "@/components/quote";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -21,10 +22,13 @@ import { cn } from "@/lib/utils";
 export type SourceEvidence = { source: string; quote: string; found?: boolean };
 
 type SourceApi = {
-  /** Open the panel on one piece of evidence: the entry, with the quote marked, or the document page. */
-  open: (evidence: SourceEvidence) => void;
+  /**
+   * Open the panel on one piece of evidence: the entry, with the quote marked, or the document page.
+   * `from` is what was selected; the panel is seen to come out of it.
+   */
+  open: (evidence: SourceEvidence, from?: Element | null) => void;
   /** Open the panel on an entry of the case file by its ref, e.g. "N12". */
-  openRef: (ref: string) => void;
+  openRef: (ref: string, from?: Element | null) => void;
 };
 
 type SourceState = SourceApi & {
@@ -214,7 +218,7 @@ export function SourceLinks({ evidence, quotes = false }: { evidence: SourceEvid
               type="button"
               title={quote ? `“${quote}”` : undefined}
               className={cn(linkClass, "mr-1.5 text-left whitespace-nowrap")}
-              onClick={() => open(item)}
+              onClick={(event) => open(item, event.currentTarget)}
             >
               {label}
             </button>
@@ -233,7 +237,7 @@ export function SourceLinks({ evidence, quotes = false }: { evidence: SourceEvid
         item.found === false ? (
           <span key={key} className="block">
             <span className="font-serif text-[13px] text-foreground">“{quote}”</span>{" "}
-            <button type="button" className={linkClass} onClick={() => open(item)}>
+            <button type="button" className={linkClass} onClick={(event) => open(item, event.currentTarget)}>
               {label}
             </button>
             , not found word for word in the source
@@ -244,11 +248,11 @@ export function SourceLinks({ evidence, quotes = false }: { evidence: SourceEvid
               type="button"
               aria-label={`Open ${label}: ${quote}`}
               className="group/quote cursor-pointer rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-              onClick={() => open(item)}
+              onClick={(event) => open(item, event.currentTarget)}
             >
               <Quote text={quote} />
             </button>{" "}
-            <button type="button" className={cn(linkClass, "whitespace-nowrap")} onClick={() => open(item)}>
+            <button type="button" className={cn(linkClass, "whitespace-nowrap")} onClick={(event) => open(item, event.currentTarget)}>
               {label}
             </button>
           </span>
@@ -257,7 +261,7 @@ export function SourceLinks({ evidence, quotes = false }: { evidence: SourceEvid
       {plain.length > 0 && (
         <span className="flex flex-wrap gap-x-3">
           {plain.map(({ item, key, label }) => (
-            <button key={key} type="button" className={linkClass} onClick={() => open(item)}>
+            <button key={key} type="button" className={linkClass} onClick={(event) => open(item, event.currentTarget)}>
               {label}
             </button>
           ))}
@@ -276,12 +280,22 @@ export function SourceProvider({ file, children }: { file: CaseFile; children: R
   const year = file.syncedAt.slice(0, 4);
   const [shown, setShown] = useState<Shown | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [flight, setFlight] = useState<Flight | null>(null);
 
-  const open = useCallback((evidence: SourceEvidence) => {
-    setShown((previous) => ({ evidence, nonce: (previous?.nonce ?? 0) + 1 }));
-    setIsOpen(true);
-  }, []);
-  const openRef = useCallback((ref: string) => open({ source: ref, quote: "" }), [open]);
+  const open = useCallback(
+    (evidence: SourceEvidence, from?: Element | null) => {
+      setShown((previous) => ({ evidence, nonce: (previous?.nonce ?? 0) + 1 }));
+      setIsOpen(true);
+      // The selected link flies to the panel's heading, so the reader sees which line the panel answers.
+      if (from && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        const rect = from.getBoundingClientRect();
+        const kind = entries.get(parseSource(evidence.source).ref)?.kind;
+        setFlight({ rect, label: from.textContent?.trim() || evidence.source, wide: kind === "document", nonce: Date.now() });
+      }
+    },
+    [entries],
+  );
+  const openRef = useCallback((ref: string, from?: Element | null) => open({ source: ref, quote: "" }, from), [open]);
   const value = useMemo(() => ({ open, openRef, entries, year }), [open, openRef, entries, year]);
 
   const target = shown ? parseSource(shown.evidence.source) : null;
@@ -321,7 +335,47 @@ export function SourceProvider({ file, children }: { file: CaseFile; children: R
           )}
         </SheetContent>
       </Sheet>
+      {flight && createPortal(<FlyingLink key={flight.nonce} flight={flight} onLanded={() => setFlight(null)} />, document.body)}
     </SourceContext.Provider>
+  );
+}
+
+type Flight = { rect: DOMRect; label: string; wide: boolean; nonce: number };
+
+/**
+ * A copy of the selected link that travels from where it was selected to the top of the panel as the
+ * panel slides in, then fades: it ties the line the reader chose to the source that answers it.
+ */
+function FlyingLink({ flight, onLanded }: { flight: Flight; onLanded: () => void }) {
+  const fly = useCallback(
+    (element: HTMLElement | null) => {
+      if (!element) return;
+      // Where the panel's heading will be: the panel is 36rem wide, or most of the window for a document.
+      const panel = flight.wide ? Math.min(84 * 16, window.innerWidth * 0.94) : Math.min(36 * 16, window.innerWidth);
+      const dx = window.innerWidth - panel + 24 - flight.rect.left;
+      const dy = 28 - flight.rect.top;
+      const animation = element.animate(
+        [
+          { transform: "translate(0, 0) scale(1)", opacity: 1 },
+          { transform: `translate(${dx * 0.85}px, ${dy * 0.85}px) scale(1.25)`, opacity: 1, offset: 0.75 },
+          { transform: `translate(${dx}px, ${dy}px) scale(1.35)`, opacity: 0 },
+        ],
+        { duration: 560, easing: "cubic-bezier(0.3, 0.7, 0.2, 1)", fill: "forwards" },
+      );
+      animation.onfinish = onLanded;
+      return () => animation.cancel();
+    },
+    [flight, onLanded],
+  );
+  return (
+    <span
+      ref={fly}
+      aria-hidden
+      className="pointer-events-none fixed z-[60] origin-top-left rounded-md bg-primary px-1.5 py-0.5 text-xs font-medium whitespace-nowrap text-primary-foreground shadow-lg"
+      style={{ left: flight.rect.left, top: flight.rect.top }}
+    >
+      {flight.label}
+    </span>
   );
 }
 
@@ -383,7 +437,7 @@ function EntryPane({ entry, evidence }: { entry: Entry; evidence: SourceEvidence
             {at ? (
               <>
                 {text.slice(0, at.start)}
-                <mark ref={reveal} className="scroll-my-24 bg-marker box-decoration-clone px-0.5 text-foreground">
+                <mark ref={reveal} className="passage-pulse scroll-my-24 bg-marker box-decoration-clone px-0.5 text-foreground">
                   {text.slice(at.start, at.end)}
                 </mark>
                 {text.slice(at.end)}
@@ -475,7 +529,7 @@ function DocumentPane({
                 {evidence.found === false ? (
                   <span className="font-serif text-[13px] leading-relaxed">“{quote}”</span>
                 ) : (
-                  <Quote text={quote} lit />
+                  <Quote text={quote} lit className="passage-pulse" />
                 )}
               </p>
               {evidence.found === false && (

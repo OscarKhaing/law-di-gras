@@ -206,7 +206,7 @@ function Who({ person, entry }: { person: Person; entry: Entry | null }) {
       {entry ? (
         <button
           type="button"
-          onClick={() => openRef(entry.ref)}
+          onClick={(event) => openRef(entry.ref, event.currentTarget)}
           className="cursor-pointer rounded-sm text-left font-serif text-base leading-snug font-medium text-pretty decoration-input underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/50"
         >
           {entry.title}

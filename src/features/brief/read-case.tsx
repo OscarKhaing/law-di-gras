@@ -377,9 +377,11 @@ export function FreshReadLink({ matterId }: { matterId: number }) {
 }
 
 /** "Check Clio" in the header: read the matter again, then show the page afresh. */
-export function CheckClio({ matterId, fingerprint }: { matterId: number; fingerprint: string }) {
+export function CheckClio({ matterId, fingerprint, entries }: { matterId: number; fingerprint: string; entries: number }) {
   const router = useRouter();
-  const [state, setState] = useState<{ status: "idle" | "checking" | "same" | "changed" } | { status: "failed"; message: string }>({
+  const [state, setState] = useState<
+    { status: "idle" | "checking" | "same" } | { status: "changed"; added: number } | { status: "failed"; message: string }
+  >({
     status: "idle",
   });
   const [refreshing, startRefresh] = useTransition();
@@ -389,7 +391,7 @@ export function CheckClio({ matterId, fingerprint }: { matterId: number; fingerp
     setState({ status: "checking" });
     try {
       const synced = await postJson<Synced>("/api/cases/sync", { matterId });
-      setState({ status: synced.fingerprint === fingerprint ? "same" : "changed" });
+      setState(synced.fingerprint === fingerprint ? { status: "same" } : { status: "changed", added: synced.entries - entries });
       startRefresh(() => router.refresh());
     } catch (err) {
       setState({ status: "failed", message: messageOf(err) });
@@ -405,6 +407,13 @@ export function CheckClio({ matterId, fingerprint }: { matterId: number; fingerp
       {!checking && state.status === "same" && (
         <p className="text-xs text-muted-foreground" role="status">
           Nothing has changed in Clio.
+        </p>
+      )}
+      {!checking && state.status === "changed" && (
+        <p className="max-w-64 text-xs text-muted-foreground sm:text-right" role="status">
+          {state.added > 0
+            ? `${state.added} new ${state.added === 1 ? "entry" : "entries"} from Clio, marked under "Since you last opened".`
+            : "Clio has changed: entries were edited since the last read."}
         </p>
       )}
       {state.status === "failed" && (

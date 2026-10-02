@@ -7,6 +7,7 @@ import { CountBadge, StatusIcon, type Tone } from "@/components/status";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { RoleSwitch, inReadingOrder, useRole } from "./role";
+import { useChanges } from "./arrived";
 
 export type CaseTab = {
   id: string;
@@ -22,9 +23,29 @@ export type CaseTab = {
   content: ReactNode;
 };
 
-const OpenTab = createContext<(id: string) => void>(() => {});
+const OpenTab = createContext<(id: string, look?: string) => void>(() => {});
 
-/** Switch the case to another part, e.g. from a tile on the overview. */
+/**
+ * Bring the reader's eye to what a tile counted: scroll to the elements marked `data-look={look}` in
+ * the part now open, and flash them once. Runs after the part is shown, since the address change
+ * that shows it renders a moment later.
+ */
+function lookAt(look: string) {
+  window.setTimeout(() => {
+    const found = [...document.querySelectorAll<HTMLElement>(`[data-look="${look}"]`)].filter((element) => !element.closest("[hidden]"));
+    if (found.length === 0) return;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    found[0].scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
+    for (const element of found) {
+      element.classList.remove("look-here");
+      void element.offsetWidth; // restart the flash if it is already playing
+      element.classList.add("look-here");
+    }
+    window.setTimeout(() => found.forEach((element) => element.classList.remove("look-here")), 2000);
+  }, 80);
+}
+
+/** Switch the case to another part, e.g. from a tile on the overview, optionally to what it counted. */
 export const useOpenTab = () => useContext(OpenTab);
 
 // The open part has two cues, a tint and a short bar at its left edge, and keeps its weight so the
@@ -39,7 +60,7 @@ const itemClass = cn(
 
 /**
  * A case as a side column and a reading area. The side column holds who the case is about and a
- * menu of its parts, each with coloured counts; it stays in view while the reading area scrolls.
+ * menu of its parts, each with coloured counts; the menu stays in view while the reading area scrolls.
  * The open part is kept in the address (`?tab=money`), so Back, reload and a shared link land on
  * it. Every part stays mounted while hidden, so a search or a selection survives switching away.
  *
@@ -58,7 +79,8 @@ export function CaseTabs({ side, notice, tabs }: { side: ReactNode; notice?: Rea
   const requested = params.get("tab");
   const active = menu.some((tab) => tab.id === requested) ? requested! : menu[0].id;
 
-  function open(id: string) {
+  function open(id: string, look?: string) {
+    if (look) lookAt(look);
     if (id === active) return;
     const next = new URLSearchParams(params.toString());
     // A part the reader chose is always named in the address, the first one too: which part is
@@ -66,8 +88,8 @@ export function CaseTabs({ side, notice, tabs }: { side: ReactNode; notice?: Rea
     next.set("tab", id);
     // The history API updates the address without asking the server for the page again.
     window.history.pushState(null, "", `${pathname}?${next.toString()}`);
-    // From far down a long part, come back up to the start of the new one.
-    if (start.current && start.current.getBoundingClientRect().top < 0) start.current.scrollIntoView({ block: "start" });
+    // From far down a long part, come back up to the start of the new one (unless a tile chose where to look).
+    if (!look && start.current && start.current.getBoundingClientRect().top < 0) start.current.scrollIntoView({ block: "start" });
   }
 
   return (
@@ -78,12 +100,14 @@ export function CaseTabs({ side, notice, tabs }: { side: ReactNode; notice?: Rea
         orientation="vertical"
         className="grid items-start gap-6 lg:grid-cols-[14rem_minmax(0,1fr)] lg:gap-8"
       >
-        {/* On a short window the column is taller than the screen: it then scrolls on its own, so the
-            last parts of the menu can always be reached. The side padding keeps the cards' edges
-            from being clipped by that scrolling. */}
-        <aside className="min-w-0 space-y-3 lg:sticky lg:top-6 lg:-mx-1 lg:max-h-[calc(100dvh-3rem)] lg:overflow-y-auto lg:px-1 lg:pb-1 lg:[scrollbar-width:thin]">
+        {/*
+          The column runs the full height of the reading area. Who the case is about scrolls away with
+          the page; the menu card stays pinned, and is short enough to fit any screen whole, so it is
+          never cut off at the top or bottom of the window.
+        */}
+        <aside className="min-w-0 space-y-3 lg:self-stretch">
           {side}
-          <div className="rounded-2xl border bg-card shadow-xs">
+          <div className="rounded-2xl border bg-card shadow-xs lg:sticky lg:top-6">
             <RoleSwitch role={role} onChange={setRole} className="border-b p-3" />
             {/* The firm's sidebar counts cases across the whole firm; this menu and its counts are
                 about the one case that is open. The label says so, in the same quiet words the
@@ -119,8 +143,23 @@ export function CaseTabs({ side, notice, tabs }: { side: ReactNode; notice?: Rea
   );
 }
 
+/** A tile's number; when a "Check Clio" moves it, it flashes so the change is not missed. */
+function TileCount({ count, className }: { count: number; className: string }) {
+  const changes = useChanges(count);
+  return (
+    <span
+      key={changes}
+      className={cn("mt-1.5 block font-heading text-3xl font-semibold tabular-nums", changes > 0 && "look-here", className)}
+    >
+      {count}
+    </span>
+  );
+}
+
 export type Tile = {
   tab: string;
+  /** What the tile counts, marked `data-look` in that part: the reader is taken straight to it. */
+  look?: string;
   label: string;
   count: number;
   /** The colour when there is something to count; with nothing to count a tile is green. */
@@ -155,7 +194,7 @@ export function StatusTiles({ tiles }: { tiles: Tile[] }) {
           <button
             key={tile.label}
             type="button"
-            onClick={() => open(tile.tab)}
+            onClick={() => open(tile.tab, tile.look)}
             className={cn(
               "group flex cursor-pointer flex-col items-start rounded-2xl border px-4 py-3.5 text-left shadow-xs outline-none transition-colors hover:border-foreground/25 focus-visible:ring-2 focus-visible:ring-ring/50",
               GROUND[tone],
@@ -165,7 +204,7 @@ export function StatusTiles({ tiles }: { tiles: Tile[] }) {
               <StatusIcon tone={tone} className="size-4" />
               {tile.label}
             </span>
-            <span className={cn("mt-1.5 block font-heading text-3xl font-semibold tabular-nums", NUMBER[tone])}>{tile.count}</span>
+            <TileCount count={tile.count} className={NUMBER[tone]} />
             <span className="mt-0.5 block text-xs text-muted-foreground group-hover:text-foreground">
               {tile.count > 0 ? tile.some : tile.none}
             </span>

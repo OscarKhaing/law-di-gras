@@ -72,7 +72,7 @@ export function Glance({ file, stored, today }: SectionProps) {
             <>
               <Value remark={fromToday(spoke.date, today)}>{shortDate(spoke.date, true)}</Value>
               <p className="truncate text-xs leading-5 text-muted-foreground">
-                <button type="button" title={spoke.title} className={openClass} onClick={() => openRef(spoke.ref)}>
+                <button type="button" title={spoke.title} className={openClass} onClick={(event) => openRef(spoke.ref, event.currentTarget)}>
                   {spoke.title || "call"}
                 </button>
               </p>

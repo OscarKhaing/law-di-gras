@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import type { ListedCase } from "@/features/brief/schema";
@@ -17,9 +16,7 @@ export default async function FirmLayout({ children }: { children: React.ReactNo
   }
   return (
     <SidebarProvider>
-      <Suspense>
-        <AppSidebar cases={cases} />
-      </Suspense>
+      <AppSidebar cases={cases} />
       <SidebarInset>
         <header className="flex h-12 items-center gap-2 border-b px-4">
           <SidebarTrigger />

@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { FolderOpenIcon, ScaleIcon } from "lucide-react";
@@ -31,8 +32,6 @@ const COUNT: Record<Tone, string> = { urgent: "text-urgent-ink", mild: "text-mil
  */
 export function AppSidebar({ cases }: { cases: ListedCase[] }) {
   const pathname = usePathname();
-  const show = useSearchParams().get("show");
-  const onList = pathname === "/";
   // The case that is open, if any: /cases/<id>, or its fresh read at /cases/-<id>.
   const openId = Math.abs(Number(pathname.match(/^\/cases\/(-?\d+)/)?.[1] ?? 0));
   const openCase = cases.find((item) => item.matterId === openId);
@@ -46,6 +45,55 @@ export function AppSidebar({ cases }: { cases: ListedCase[] }) {
         </div>
       </SidebarHeader>
       <SidebarContent>
+        {/*
+          Only the worklists read the URL (?show=), so only they wait on it. A boundary around the whole
+          sidebar would hydrate it after the provider has switched to the phone layout, and the two
+          renders would disagree.
+        */}
+        <Suspense fallback={<Worklists cases={cases} openCase={openCase} onList={pathname === "/"} show={null} />}>
+          <WorklistsFromUrl cases={cases} openCase={openCase} />
+        </Suspense>
+
+        {cases.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Cases</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {cases.map((item) => (
+                  <SidebarMenuItem key={item.matterId}>
+                    <SidebarMenuButton
+                      isActive={pathname.startsWith(`/cases/${item.matterId}`)}
+                      className="h-auto py-1.5"
+                      render={<Link href={`/cases/${item.matterId}`} />}
+                    >
+                      <span className="flex min-w-0 flex-col">
+                        <span className="truncate font-serif text-[15px]">{item.client}</span>
+                        <span className="truncate text-xs text-muted-foreground">{item.stage}</span>
+                      </span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+      </SidebarContent>
+    </Sidebar>
+  );
+}
+
+type WorklistsProps = { cases: ListedCase[]; openCase: ListedCase | undefined };
+
+function WorklistsFromUrl({ cases, openCase }: WorklistsProps) {
+  const onList = usePathname() === "/";
+  const show = useSearchParams().get("show");
+  return <Worklists cases={cases} openCase={openCase} onList={onList} show={show} />;
+}
+
+/** "All cases", then the worklists with how many cases are on each. */
+function Worklists({ cases, openCase, onList, show }: WorklistsProps & { onList: boolean; show: string | null }) {
+  return (
+    <>
         <SidebarGroup>
           <SidebarGroupLabel>Across all cases</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -96,31 +144,6 @@ export function AppSidebar({ cases }: { cases: ListedCase[] }) {
             )}
           </SidebarGroupContent>
         </SidebarGroup>
-
-        {cases.length > 0 && (
-          <SidebarGroup>
-            <SidebarGroupLabel>Cases</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {cases.map((item) => (
-                  <SidebarMenuItem key={item.matterId}>
-                    <SidebarMenuButton
-                      isActive={pathname.startsWith(`/cases/${item.matterId}`)}
-                      className="h-auto py-1.5"
-                      render={<Link href={`/cases/${item.matterId}`} />}
-                    >
-                      <span className="flex min-w-0 flex-col">
-                        <span className="truncate font-serif text-[15px]">{item.client}</span>
-                        <span className="truncate text-xs text-muted-foreground">{item.stage}</span>
-                      </span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
-      </SidebarContent>
-    </Sidebar>
+    </>
   );
 }

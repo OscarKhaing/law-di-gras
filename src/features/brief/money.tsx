@@ -362,7 +362,7 @@ function Spend({ file }: Pick<SectionProps, "file">) {
           <li key={entry.ref}>
             <button
               type="button"
-              onClick={() => openRef(entry.ref)}
+              onClick={(event) => openRef(entry.ref, event.currentTarget)}
               className="group/expense grid w-full cursor-pointer grid-cols-[6.5rem_minmax(0,1fr)_5.5rem] items-baseline gap-x-4 rounded-sm py-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
             >
               <span className="text-xs text-muted-foreground tabular-nums">
