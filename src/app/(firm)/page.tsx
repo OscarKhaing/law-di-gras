@@ -1,75 +1,93 @@
 import Link from "next/link";
-import { shortDate, type CaseSummary } from "@/features/cases/schema";
-import { listCases } from "@/features/cases/server";
+import { buttonVariants } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { LocalTime } from "@/features/cases/local-time";
+import type { CaseSummary } from "@/features/cases/schema";
+import { listMatters } from "@/features/cases/server";
 import { StageTrack } from "@/features/cases/stage-track";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
-// Read on every request: the list is whatever has been read from Clio so far.
+// Read on every request: the list is the matters in Clio now, and which of them have been read.
 export const dynamic = "force-dynamic";
 
 export default async function CasesPage() {
-  let cases: CaseSummary[] = [];
-  let failure: string | null = null;
+  let connected = false;
+  let matters: CaseSummary[] = [];
+  let failure = "";
   try {
-    cases = await listCases();
+    ({ connected, matters } = await listMatters());
   } catch (err) {
-    failure = (err as { message?: string } | null)?.message ?? "The database could not be reached.";
+    failure = (err as { message?: string } | null)?.message ?? "Clio or the database could not be reached.";
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6">
       <div>
         <h1 className="font-heading text-3xl font-semibold tracking-tight">Cases</h1>
-        <p className="mt-1 text-muted-foreground">Read from your Clio account.</p>
+        <p className="mt-1 text-muted-foreground">The matters in your Clio account. Open one to read its brief.</p>
       </div>
+
       {failure ? (
-        <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm">
+        <div role="alert" className="max-w-prose border-l-2 border-destructive pl-3 text-sm">
           <p className="font-medium text-destructive">The cases could not be loaded</p>
-          <p className="mt-1 text-muted-foreground">{failure}</p>
+          <p className="mt-1">{failure}</p>
+          <p className="mt-1 text-muted-foreground">
+            Reload the page. If Clio is refusing the connection,{" "}
+            <a href="/api/clio/connect" className="text-foreground underline underline-offset-2">
+              connect Clio again
+            </a>
+            .
+          </p>
         </div>
-      ) : cases.length === 0 ? (
-        <p className="max-w-prose text-sm text-muted-foreground">
-          No case has been read from Clio yet. Connect Clio, then read a case to see its brief here.
+      ) : !connected ? (
+        <div className="max-w-prose space-y-4 border-y py-5">
+          <p className="text-sm">
+            Case Desk reads each case from Clio, so it needs your permission to read your Clio account. It only reads:
+            nothing in Clio is changed.
+          </p>
+          <a href="/api/clio/connect" className={buttonVariants({ size: "lg" })}>
+            Connect Clio
+          </a>
+        </div>
+      ) : matters.length === 0 ? (
+        <p className="max-w-prose border-y py-5 text-sm text-muted-foreground">
+          Clio is connected, but the account has no matters. Open a matter in Clio and it will be listed here.
         </p>
       ) : (
-        <div className="overflow-hidden rounded-lg border bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="px-4 text-muted-foreground">Client</TableHead>
-                <TableHead className="text-muted-foreground">Matter</TableHead>
-                <TableHead className="text-muted-foreground">Stage</TableHead>
-                <TableHead className="px-4 text-right text-muted-foreground">Read from Clio</TableHead>
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="pl-0 text-muted-foreground">Client</TableHead>
+              <TableHead className="text-muted-foreground">Matter</TableHead>
+              <TableHead className="text-muted-foreground">Stage</TableHead>
+              <TableHead className="pr-0 text-right text-muted-foreground">Read from Clio</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {matters.map((matter) => (
+              <TableRow key={matter.matterId} className="relative hover:bg-transparent">
+                <TableCell className="py-3.5 pl-0">
+                  {/* The link's ::after covers the row, so the whole row opens the case. */}
+                  <Link
+                    href={`/cases/${matter.matterId}`}
+                    className="font-heading text-lg font-semibold tracking-tight underline-offset-4 outline-none after:absolute after:inset-0 hover:underline focus-visible:underline"
+                  >
+                    {matter.client || "Client not named in Clio"}
+                  </Link>
+                  {matter.description && (
+                    <p className="max-w-md truncate text-sm text-muted-foreground">{matter.description}</p>
+                  )}
+                </TableCell>
+                <TableCell className="tabular-nums">{matter.number}</TableCell>
+                <TableCell>
+                  <StageTrack stage={matter.stage} stages={matter.stages} />
+                </TableCell>
+                <TableCell className="pr-0 text-right text-muted-foreground">
+                  {matter.syncedAt ? <LocalTime iso={matter.syncedAt} /> : "Not read yet"}
+                </TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {cases.map((c) => (
-                <TableRow key={c.matterId} className="relative">
-                  <TableCell className="px-4 py-3 font-medium">
-                    {/* The link's ::after covers the row, so the whole row opens the case. */}
-                    <Link href={`/cases/${c.matterId}`} className="after:absolute after:inset-0">
-                      {c.client}
-                    </Link>
-                  </TableCell>
-                  <TableCell>{c.number}</TableCell>
-                  <TableCell>
-                    <StageTrack stage={c.stage} stages={c.stages} />
-                  </TableCell>
-                  <TableCell className="px-4 text-right text-muted-foreground tabular-nums">
-                    {shortDate(c.syncedAt)}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+            ))}
+          </TableBody>
+        </Table>
       )}
     </div>
   );

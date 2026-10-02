@@ -40,6 +40,15 @@ nothing but the update published to its link.
    full file (every entry, filter by kind, search); how this brief was made (models, cost, when).
    Selecting any line opens the **source panel** on the right: the note, email, call, task or
    calendar entry with the quoted passage marked, or the document at the cited page.
+   **The brief must read in 90 seconds.** Everything above the full file should fit in about three
+   screens at 1440x900 (roughly 2,700 px), not ten. So: sources are small text links after a
+   statement, and the quoted passage is shown in the source panel when one is opened, not inline.
+   Quotes are shown inline in only two places, where the passage is the point: red flags (the
+   passages that disagree) and the moment that is selected on the time strip. No fact appears twice
+   (the incident is in the header, so "At a glance" does not repeat it). A ledger with more than
+   five rows shows its first five and "Show all N". "Since you last opened" shows a count per kind
+   and the five newest items, with the rest on demand. Others on the case, and how the brief was
+   made, are closed by default.
 3. **Provider update (`/cases/[id]/providers/[contact]`).** Left: drafted lines grouped by section,
    each with a switch, editable wording and its source; lines that are the attorney's call start
    switched off. Right: the provider's page exactly as it will look. Main action: "Publish and copy

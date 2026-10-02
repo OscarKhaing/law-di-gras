@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FlaskConicalIcon, FolderOpenIcon, ScaleIcon } from "lucide-react";
+import { FolderOpenIcon, ScaleIcon } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -14,10 +14,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 
-const NAV = [
-  { href: "/", label: "Cases", icon: FolderOpenIcon },
-  { href: "/playground", label: "LLM playground", icon: FlaskConicalIcon },
-];
+const NAV = [{ href: "/", label: "Cases", icon: FolderOpenIcon }];
 
 export function AppSidebar() {
   const pathname = usePathname();
