@@ -6,6 +6,27 @@ import { z } from "zod";
 import { Evidence } from "@/features/cases/schema";
 
 export const SECTIONS = ["status", "coverage", "needs", "attendance", "on file", "other treatment", "movement"] as const;
+export type Section = (typeof SECTIONS)[number];
+
+/** The heading each section has on the provider's page, in the order the page shows them. */
+export const SECTION_HEADINGS: Record<Section, string> = {
+  status: "Case status",
+  coverage: "Coverage",
+  needs: "What we need from your office",
+  attendance: "Your patient's attendance",
+  "on file": "What we hold from your office",
+  "other treatment": "Other treatment",
+  movement: "Recent movement",
+};
+
+/** Sections where every line is the attorney's call, whatever the model said: they start switched off. */
+export const ATTORNEYS_CALL: readonly Section[] = ["coverage", "attendance", "other treatment"];
+
+/** The section a line belongs to. The model's wording is not enforced, so anything unrecognised is case status. */
+export function sectionOf(said: string): Section {
+  const text = said.trim().toLowerCase();
+  return SECTIONS.find((section) => section === text) ?? SECTIONS.find((section) => text.includes(section)) ?? "status";
+}
 
 /** What the model drafts for the attorney to check. */
 export const UpdateDraft = z.object({
@@ -41,6 +62,9 @@ export type ProviderUpdate = {
   expiresAt: string;
 };
 
+/** Something the provider's office wrote back. `lineId` is the request it answers. */
+export type Reply = { lineId: string | null; text: string; at: string };
+
 /** What the firm sees about an update it shared. */
 export type ShareStatus = {
   id: string;
@@ -52,5 +76,33 @@ export type ShareStatus = {
   opens: number;
   lastOpenedAt: string | null;
   /** What the provider wrote back. It lives in our database; nothing is written to Clio. */
-  replies: { lineId: string | null; text: string; at: string }[];
+  replies: Reply[];
 };
+
+// ---- What a request may carry. Everything is checked against these before it reaches the database. ----
+
+export const REPLY_LIMIT = 2000;
+
+export const MatterId = z.number().int().positive();
+export const ContactRef = z.string().regex(/^P\d+$/, "Not a contact on the case.");
+export const ShareToken = z.string().regex(/^[A-Za-z0-9_-]{20,100}$/, "Not a link.");
+export const LineId = z.string().regex(/^[A-Za-z0-9_-]{1,40}$/, "Not a line of the update.");
+
+/** The lines the attorney publishes, as the composer sends them. Same shape as DraftLine. */
+export const DraftLines = z
+  .array(
+    z.object({
+      id: LineId,
+      section: z.string().max(40),
+      text: z.string().max(1000),
+      yourCall: z.boolean(),
+      evidence: z.array(z.object({ source: z.string().max(40), quote: z.string().max(600) })).max(20),
+      share: z.boolean(),
+    }),
+  )
+  .max(80);
+
+export const DraftBody = z.object({ matterId: MatterId, contactRef: ContactRef });
+export const PublishBody = z.object({ matterId: MatterId, contactRef: ContactRef, lines: DraftLines });
+export const RevokeBody = z.object({ shareId: z.uuid() });
+export const ReplyBody = z.object({ token: ShareToken, lineId: LineId, text: z.string().trim().min(1).max(REPLY_LIMIT) });

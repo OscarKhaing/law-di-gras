@@ -111,17 +111,26 @@ type ClioDocument = Stamped & {
 
 const dollars = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
 
-/** Rich text from Clio comes as simple HTML; everything is kept as plain text. */
+const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
+
+/** Clio escapes some text as HTML ("client&#39;s"); turn the entities back into characters. */
+function decode(text: string) {
+  return text.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, name: string) => {
+    if (name[0] !== "#") return ENTITIES[name.toLowerCase()] ?? whole;
+    const code = name[1].toLowerCase() === "x" ? parseInt(name.slice(2), 16) : Number(name.slice(1));
+    return Number.isFinite(code) && code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : whole;
+  });
+}
+
+/** Text from Clio as plain text: rich text comes as simple HTML, and any text may carry entities. */
 function plain(text: string | null | undefined, type?: string | null) {
   if (!text) return "";
-  if (type !== "rich_text") return text.trim();
-  return text
-    .replace(/<\s*(br|\/p|\/div|\/li)\s*\/?>/gi, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
+  if (type !== "rich_text") return decode(text).trim();
+  return decode(
+    text
+      .replace(/<\s*(br|\/p|\/div|\/li)\s*\/?>/gi, "\n")
+      .replace(/<[^>]+>/g, ""),
+  )
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
@@ -305,7 +314,7 @@ export async function syncCase(matterId: number): Promise<CaseFile> {
       etag: `${value.custom_field?.etag ?? ""}:${value.updated_at}`,
       date: "",
       title: value.field_name,
-      text,
+      text: decode(text),
       people: [],
       facts: { fieldType: value.field_type, value: value.value },
       createdAt: iso(value.updated_at),
@@ -320,8 +329,8 @@ export async function syncCase(matterId: number): Promise<CaseFile> {
       ...stamp(contact),
       kind: "contact",
       date: "",
-      title: contact.name,
-      text: role,
+      title: plain(contact.name),
+      text: plain(role),
       people: contact.company ? [contact.company.name] : [],
       facts: {
         role,
@@ -338,7 +347,7 @@ export async function syncCase(matterId: number): Promise<CaseFile> {
       ...stamp(note),
       kind: "note",
       date: note.date ?? "",
-      title: note.subject ?? "",
+      title: plain(note.subject),
       text: plain(note.detail, note.detail_text_type),
       people: note.author ? [note.author.name] : [],
       facts: {},
@@ -352,7 +361,7 @@ export async function syncCase(matterId: number): Promise<CaseFile> {
       ...stamp(message),
       kind: message.type === "PhoneCommunication" ? "call" : "email",
       date: message.date ?? "",
-      title: message.subject ?? "",
+      title: plain(message.subject),
       text: plain(message.body, /<\w+[^>]*>/.test(message.body ?? "") ? "rich_text" : null),
       people: [...from, ...to],
       facts: { from: from.join(", "), to: to.join(", ") },
@@ -364,7 +373,7 @@ export async function syncCase(matterId: number): Promise<CaseFile> {
       ...stamp(task),
       kind: "task",
       date: task.due_at ?? "",
-      title: task.name,
+      title: plain(task.name),
       text: plain(task.description, task.description_text_type),
       people: task.assignee ? [task.assignee.name] : [],
       facts: { status: task.status, priority: task.priority ?? "", completedAt: iso(task.completed_at) },
@@ -376,7 +385,7 @@ export async function syncCase(matterId: number): Promise<CaseFile> {
       ...stamp(event),
       kind: "event",
       date: utcDay(event.start_at),
-      title: event.summary ?? "",
+      title: plain(event.summary),
       text: plain(event.description),
       people: names(event.attendees),
       facts: { startAt: iso(event.start_at), endAt: iso(event.end_at), location: event.location ?? "", allDay: event.all_day },

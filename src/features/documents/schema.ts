@@ -1,81 +1,49 @@
 import { z } from "zod";
 
-// What gets extracted from a document. FIELDS is the main thing to change for a new use case:
-// the prompt, the model's output format and the review screen all follow this list.
+// The page index: what a model read on each page of a case document. Browser-safe.
 
-type FieldSpec = {
-  label: string;
-  description: string;
-  /** True when a document can hold several of these; the model returns one entry per item. */
-  list?: boolean;
-};
-
-export const FIELDS: FieldSpec[] = [
-  { label: "Client", description: "Full name of the injured person (the patient or claimant)" },
-  { label: "Date of incident", description: "Date of the event that caused the injury, as YYYY-MM-DD" },
-  { label: "Incident", description: "One sentence on what happened and how the person was hurt" },
-  { label: "Diagnosis", description: "Each injury or diagnosis attributed to the incident", list: true },
-  {
-    label: "Treatment",
-    description: "Each visit, test or procedure, as: date (YYYY-MM-DD), what was done, provider",
-    list: true,
-  },
-  { label: "Charge", description: "Each billed amount, as: amount, what it was for", list: true },
-  { label: "Total charges", description: "The total amount billed, as the document states it" },
-  {
-    label: "Gap in treatment",
-    description: "Each period of 30 days or more with no treatment, as: start date to end date",
-    list: true,
-  },
-  { label: "Prior conditions", description: "Earlier injuries or conditions affecting the same body parts" },
-  { label: "Work impact", description: "Time off work or work restrictions caused by the injury" },
-];
-
-export const ExtractedField = z.object({
-  label: z.string().describe("Label of the requested field this entry answers, exactly as quoted in the list"),
-  value: z
+/** One page of a document, as indexed. `page` is the page of the whole document, first page = 1. */
+export const PageNote = z.object({
+  page: z.number().describe("Position of the page in this file, first page = 1"),
+  kind: z
     .string()
-    .describe("The value as the document states it; an empty string when the document does not contain it"),
-  evidence: z
-    .string()
-    .nullable()
-    .describe("A short verbatim quote from the document that supports the value; null when there is none"),
-  page: z
-    .number()
-    .nullable()
-    .describe(
-      "Position in the file of the page the quote is on, counting the first page as 1; not a number printed on the page; null when unknown",
-    ),
-  concern: z
-    .string()
-    .nullable()
-    .describe("One sentence saying why a person should double-check this entry; null when there is no reason"),
+    .describe("What the page is: daily treatment note, MRI report, billing ledger, operative report, pleading, letter, photo ID, fax cover, blank"),
+  provider: z.string().describe("Provider or author named on the page; empty string when none"),
+  date: z.string().describe("Date of service or of the page, YYYY-MM-DD; empty string when none"),
+  facts: z
+    .array(z.object({ text: z.string(), quote: z.string().describe("A few words copied exactly from the page; empty string when illegible") }))
+    .describe("Up to four facts a personal injury lawyer needs from this page: diagnosis, finding, procedure, restriction, prior condition, missed visit, amount billed. None for covers and blanks"),
 });
+export type PageNote = z.infer<typeof PageNote>;
 
-export const DocumentExtraction = z.object({
-  documentType: z
-    .string()
-    .describe("e.g. police report, medical record, medical bill, intake form, correspondence"),
-  summary: z.string().describe("Two or three sentences a case manager could read at a glance"),
-  fields: z.array(ExtractedField),
+/** What the model returns for one part (at most 25 pages) of a document. */
+export const PartReading = z.object({
+  pages: z.array(PageNote),
+  clientPhotoPage: z.number().describe("Page showing a photo ID of the client; 0 when none"),
 });
-
-export type ExtractedField = z.infer<typeof ExtractedField>;
-export type DocumentExtraction = z.infer<typeof DocumentExtraction>;
-
-/** What the extract route and scripts/extract-file.ts return, and what the review screen shows. */
-export type Extraction = {
-  data: DocumentExtraction;
-  model: string;
-  usage: { inputTokens: number; outputTokens: number };
-  /** How long the extraction took, when that was measured. */
-  seconds?: number;
-};
+export type PartReading = z.infer<typeof PartReading>;
 
 /**
- * A field a person must look at before the document can be approved: the model raised a concern,
- * or gave a value with no quote to back it. An empty value with no concern was simply not found.
+ * One part as stored in `document_digests.digest`: the reading with its pages renumbered to pages
+ * of the whole document, plus what the code found out about the part itself.
  */
-export function needsReview(field: ExtractedField) {
-  return field.concern !== null || (field.value !== "" && field.evidence === null);
-}
+export type PartDigest = PartReading & {
+  /** Last page of the part; the first is the row's `from_page`. */
+  toPage: number;
+  /** Whether these pages have a text layer, so a quote can be highlighted in them. */
+  hasText: boolean;
+  /** Where in Storage the photograph cut from `clientPhotoPage` is kept; null when there is none. */
+  photoPath: string | null;
+};
+
+/** What the source panel needs to show one page of a document. */
+export type DocumentSource = {
+  name: string;
+  /** A signed URL the browser can open, and the page to open it at (parts are separate files). */
+  url: string;
+  viewerPage: number;
+  /** False for a scan: the page opens but a quote cannot be highlighted in it. */
+  hasText: boolean;
+  /** What was read on that page, shown beside it. Null when the document has not been indexed. */
+  note: PageNote | null;
+};

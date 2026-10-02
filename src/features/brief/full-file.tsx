@@ -1,123 +1,143 @@
 "use client";
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
-import { shortDate, type Entry, type EntryKind } from "@/features/cases/schema";
+import { shortDate, type CaseFile, type EntryKind } from "@/features/cases/schema";
+import { KIND_WORD } from "@/features/cases/words";
 import { cn } from "@/lib/utils";
-import { KIND_NAME } from "./source-panel";
+import { useSource } from "./source-panel";
 
-const KIND_ORDER: EntryKind[] = ["note", "email", "call", "task", "event", "document", "expense", "field", "contact"];
-const KIND_PLURAL: Record<EntryKind, string> = {
-  note: "Notes",
-  email: "Emails",
-  call: "Calls",
-  task: "Tasks",
-  event: "Calendar",
-  expense: "Expenses",
-  document: "Documents",
-  field: "Case fields",
-  contact: "People",
-};
+const KINDS: { kind: EntryKind; label: string }[] = [
+  { kind: "note", label: "Notes" },
+  { kind: "email", label: "Emails" },
+  { kind: "call", label: "Calls" },
+  { kind: "task", label: "Tasks" },
+  { kind: "event", label: "Calendar" },
+  { kind: "expense", label: "Expenses" },
+  { kind: "document", label: "Documents" },
+];
 
-// Dated entries newest first; undated ones (case fields, people) after them, by title.
-function newestFirst(a: Entry, b: Entry) {
-  if (a.date && b.date) return b.date.localeCompare(a.date);
-  if (a.date || b.date) return a.date ? -1 : 1;
-  return a.title.localeCompare(b.title);
-}
+const columns = "grid grid-cols-[6.5rem_minmax(0,1fr)] gap-x-4 md:grid-cols-[6.5rem_5.5rem_minmax(0,1fr)_minmax(0,14rem)]";
 
-/** Every entry in the case file as a ledger, narrowed by kind and by a search over its words. */
-export function FullFile({
-  entries,
-  openRef,
-  onOpen,
-}: {
-  entries: Entry[];
-  /** The ref shown in the source panel, if any, so its row stays marked. */
-  openRef: string | null;
-  onOpen: (ref: string) => void;
-}) {
+/** Every entry of the case, newest first: the whole file behind the brief, to filter, search and open. */
+export function FullFile({ file }: { file: CaseFile }) {
+  const { openRef } = useSource();
   const [kind, setKind] = useState<EntryKind | null>(null);
   const [query, setQuery] = useState("");
 
-  const kinds = KIND_ORDER.filter((k) => entries.some((entry) => entry.kind === k));
-  const needle = query.trim().toLowerCase();
-  const shown = entries
-    .filter((entry) => kind === null || entry.kind === kind)
-    .filter((entry) => !needle || [entry.title, entry.text, ...entry.people].join(" ").toLowerCase().includes(needle))
-    .sort(newestFirst);
+  const entries = useMemo(
+    () =>
+      file.entries
+        .filter((entry) => entry.kind !== "field" && entry.kind !== "contact")
+        .sort((a, b) => (b.date || b.createdAt).localeCompare(a.date || a.createdAt)),
+    [file],
+  );
+  const matching = useMemo(() => {
+    const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+    if (words.length === 0) return entries;
+    return entries.filter((entry) => {
+      const text = `${entry.title} ${entry.text} ${entry.people.join(" ")}`.toLowerCase();
+      return words.every((word) => text.includes(word));
+    });
+  }, [entries, query]);
+  const shown = kind ? matching.filter((entry) => entry.kind === kind) : matching;
+  const count = (of: EntryKind) => matching.filter((entry) => entry.kind === of).length;
+  const filters = [{ kind: null, label: "All", count: matching.length }, ...KINDS.map((item) => ({ ...item, count: count(item.kind) }))];
 
   return (
-    <section aria-labelledby="full-file" className="space-y-4">
-      <h2 id="full-file" className="font-heading text-2xl font-semibold tracking-tight">
-        The full file
-      </h2>
-      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-2">
-        <Button size="sm" variant={kind === null ? "secondary" : "ghost"} onClick={() => setKind(null)}>
-          All {entries.length}
-        </Button>
-        {kinds.map((k) => (
-          <Button key={k} size="sm" variant={kind === k ? "secondary" : "ghost"} onClick={() => setKind(k)}>
-            {KIND_PLURAL[k]} {entries.filter((entry) => entry.kind === k).length}
-          </Button>
-        ))}
-        <Input
-          type="search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search the file"
-          aria-label="Search the file"
-          className="ml-auto w-full bg-card sm:w-56"
-        />
+    <section aria-labelledby="file-heading">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+        <h2 id="file-heading" className="font-heading text-xl font-semibold tracking-tight">
+          The full file
+        </h2>
+        <p className="text-sm text-muted-foreground tabular-nums" aria-live="polite">
+          {entries.length === 0 ? "" : `Showing ${shown.length} of ${entries.length}`}
+        </p>
       </div>
 
-      {shown.length === 0 ? (
-        <div className="border-y py-6 text-sm text-muted-foreground">
-          {entries.length === 0 ? (
-            "Nothing has been read from Clio for this case yet."
-          ) : (
-            <>
-              Nothing in the file matches
-              {query && <> “{query.trim()}”</>}
-              {kind && <> among {KIND_PLURAL[kind].toLowerCase()}</>}.
-              <Button
-                variant="link"
-                size="sm"
-                className="px-1.5"
-                onClick={() => {
-                  setQuery("");
-                  setKind(null);
-                }}
-              >
-                Show everything
-              </Button>
-            </>
-          )}
-        </div>
+      {entries.length === 0 ? (
+        <p className="mt-3 border-y py-3 text-sm text-muted-foreground">
+          Clio holds no notes, emails, calls, tasks, calendar entries, expenses or documents on this matter.
+        </p>
       ) : (
-        <ul className="divide-y border-y">
-          {shown.map((entry) => (
-            <li key={entry.ref}>
-              <button
-                type="button"
-                onClick={() => onOpen(entry.ref)}
-                aria-current={openRef === entry.ref ? "true" : undefined}
-                className={cn(
-                  "grid w-full grid-cols-[4.5rem_minmax(0,1fr)] gap-x-4 border-l-2 border-transparent py-2.5 pr-2 pl-2 text-left sm:grid-cols-[6rem_minmax(0,1fr)_5.5rem]",
-                  openRef === entry.ref && "border-primary bg-muted/60",
-                )}
-              >
-                <span className="text-sm text-muted-foreground tabular-nums">{shortDate(entry.date, true)}</span>
-                <span className="min-w-0">
-                  <span className="block truncate font-serif text-[15px]">{entry.title || "Untitled"}</span>
-                  {entry.text && <span className="block truncate text-sm text-muted-foreground">{entry.text}</span>}
-                </span>
-                <span className="hidden text-right text-sm text-muted-foreground sm:block">{KIND_NAME[entry.kind]}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
+        <>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+            <div role="group" aria-label="Kind of entry" className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+              {filters.map((filter) => (
+                <button
+                  key={filter.label}
+                  type="button"
+                  aria-pressed={kind === filter.kind}
+                  onClick={() => setKind(filter.kind)}
+                  className={cn(
+                    "cursor-pointer border-b pb-0.5 outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+                    kind === filter.kind
+                      ? "border-foreground font-medium text-foreground"
+                      : "border-transparent text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {filter.label}
+                  <span className="ml-1 font-normal text-muted-foreground tabular-nums">{filter.count}</span>
+                </button>
+              ))}
+            </div>
+            <Input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search titles and text"
+              aria-label="Search the file"
+              className="w-full bg-card sm:w-64"
+            />
+          </div>
+
+          <div className="mt-3 max-h-[70vh] overflow-y-auto border-y">
+            <div className={cn(columns, "sticky top-0 border-b bg-background py-1.5 text-xs text-muted-foreground")}>
+              <span>Date</span>
+              <span className="hidden md:block">Kind</span>
+              <span>Title</span>
+              <span className="hidden md:block">People</span>
+            </div>
+            {shown.length === 0 ? (
+              <p className="py-3 text-sm text-muted-foreground">
+                {query ? `Nothing in the file matches “${query}”${kind ? " among these entries" : ""}. ` : "There are no entries of this kind. "}
+                <button
+                  type="button"
+                  className="cursor-pointer text-foreground underline decoration-input underline-offset-2 hover:decoration-foreground"
+                  onClick={() => {
+                    setQuery("");
+                    setKind(null);
+                  }}
+                >
+                  Show the whole file
+                </button>
+              </p>
+            ) : (
+              <ul className="divide-y">
+                {shown.map((entry) => (
+                  <li key={entry.ref}>
+                    <button
+                      type="button"
+                      onClick={() => openRef(entry.ref)}
+                      className={cn(
+                        columns,
+                        "group w-full cursor-pointer items-baseline py-1.5 text-left text-sm outline-none focus-visible:bg-muted",
+                      )}
+                    >
+                      <span className="text-muted-foreground tabular-nums">{shortDate(entry.date, true)}</span>
+                      <span className="hidden text-muted-foreground md:block">{KIND_WORD[entry.kind]}</span>
+                      <span className="truncate font-serif text-[15px] group-hover:underline group-hover:decoration-input group-hover:underline-offset-2">
+                        <span className="mr-2 font-sans text-sm text-muted-foreground md:hidden">{KIND_WORD[entry.kind]}</span>
+                        {entry.title || "Untitled"}
+                      </span>
+                      <span className="hidden truncate text-muted-foreground md:block">{entry.people.join(", ")}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </>
       )}
     </section>
   );
