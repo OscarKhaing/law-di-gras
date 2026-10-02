@@ -61,26 +61,26 @@
 }
 
 :root {
-  /* Canvas, paper and ink. */
-  --background: #f6f7f4;
+  /* Canvas, paper and ink: a warm cream canvas, cream paper on it, green-black ink. */
+  --background: #f3ede1;
   --foreground: #16201b;
-  --card: #ffffff;
+  --card: #fdf9f0;
   --card-foreground: #16201b;
-  --popover: #ffffff;
+  --popover: #fdf9f0;
   --popover-foreground: #16201b;
   /* Ledger green: the user's own actions (primary buttons, the current page, approval). */
   --primary: #1d4b3a;
   --primary-foreground: #ffffff;
   --secondary: #e6ece6;
   --secondary-foreground: #16201b;
-  --muted: #eef1ec;
-  --muted-foreground: #59655e;
+  --muted: #ede6d8;
+  --muted-foreground: #5c625a;
   --accent: #e6ece6;
   --accent-foreground: #16201b;
   /* Red: something failed. Nothing else. */
   --destructive: oklch(0.577 0.245 27.325);
-  --border: #dce1da;
-  --input: #c9d1c8;
+  --border: #e2d9c8;
+  --input: #cfc5b2;
   --ring: #1d4b3a;
   /* Marker yellow: evidence quoted from a document, and anything a person must look at. */
   --marker: #ffe680;
@@ -104,13 +104,13 @@
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
   --radius: 0.375rem;
-  --sidebar: #ffffff;
+  --sidebar: #f9f4e9;
   --sidebar-foreground: #16201b;
   --sidebar-primary: #1d4b3a;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #e6ece6;
   --sidebar-accent-foreground: #1d4b3a;
-  --sidebar-border: #dce1da;
+  --sidebar-border: #e2d9c8;
   --sidebar-ring: #1d4b3a;
 }
 
@@ -166,5 +166,46 @@
   }
   html {
     @apply font-sans;
+  }
+}
+/*
+ * Motion that helps a reader find something: a flash where the eye should land, and a pulse on the
+ * passage a source panel opened on. With less motion asked for, the same marks appear without moving.
+ */
+@keyframes look-here {
+  0% {
+    background-color: color-mix(in oklab, var(--marker) 90%, transparent);
+    box-shadow: 0 0 0 6px color-mix(in oklab, var(--marker) 55%, transparent);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+/* Where to look now: the items a tile opened on, or what just arrived from Clio. */
+@utility look-here {
+  border-radius: 0.375rem;
+  animation: look-here 1800ms ease-out 1;
+  @media (prefers-reduced-motion: reduce) {
+    animation: look-here 1800ms steps(1, end) 1;
+  }
+}
+
+@keyframes passage-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  40% {
+    box-shadow: 0 0 0 5px color-mix(in oklab, var(--marker) 80%, transparent);
+  }
+}
+
+/* The quoted passage, once the panel has opened on it. */
+@utility passage-pulse {
+  animation: passage-pulse 900ms ease-out 450ms 2;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
   }
 }

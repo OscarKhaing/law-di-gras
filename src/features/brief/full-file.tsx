@@ -128,7 +128,7 @@ export function FullFile({ file, today }: { file: CaseFile; today: string }) {
                   <li key={entry.ref}>
                     <button
                       type="button"
-                      onClick={() => openRef(entry.ref)}
+                      onClick={(event) => openRef(entry.ref, event.currentTarget)}
                       className={cn(
                         columns,
                         "group w-full cursor-pointer items-baseline px-4 py-2 text-left text-sm outline-none hover:bg-muted/50 focus-visible:bg-muted",

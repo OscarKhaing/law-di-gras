@@ -116,9 +116,10 @@ export function BriefView({
       <div className="space-y-4">
         <StatusTiles
           tiles={[
-            { tab: "todo", label: "Overdue", count: late.length, tone: "urgent", some: "Tasks past their due date", none: "Nothing is overdue" },
+            { tab: "todo", look: "overdue", label: "Overdue", count: late.length, tone: "urgent", some: "Tasks past their due date", none: "Nothing is overdue" },
             {
               tab: "todo",
+              look: "coming",
               label: "Due this week",
               count: thisWeek.length,
               tone: "mild",
@@ -127,13 +128,14 @@ export function BriefView({
             },
             {
               tab: "todo",
+              look: "waiting",
               label: "Waiting on others",
               count: brief.waiting.length,
               tone: "mild",
               some: "Requests the firm is still waiting on",
               none: "Nobody owes the firm anything",
             },
-            { tab: "flags", label: "High red flags", count: flagsOf("high"), tone: "urgent", some: "Weaknesses to deal with first", none: "No high red flags" },
+            { tab: "flags", look: "flags-high", label: "High red flags", count: flagsOf("high"), tone: "urgent", some: "Weaknesses to deal with first", none: "No high red flags" },
           ]}
         />
         <section aria-labelledby="bottom-line" className="space-y-3 rounded-2xl border border-primary/15 bg-primary/[0.04] p-6">

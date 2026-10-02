@@ -21,12 +21,15 @@ const titleClass = "line-clamp-3 text-pretty";
 /** One of the four ledgers: its name and count, then one line per item, the first five until asked. */
 function Ledger<T>({
   label,
+  look,
   tone,
   items,
   empty,
   render,
 }: {
   label: string;
+  /** The mark a tile on the overview uses to bring the reader here. */
+  look: string;
   /** How pressing the ledger is when it has anything in it; an empty one is all clear. */
   tone: Tone;
   items: T[];
@@ -35,7 +38,7 @@ function Ledger<T>({
 }) {
   const { shown, control } = useFold(items);
   return (
-    <div className="min-w-0 border-t py-2.5">
+    <div data-look={look} className="min-w-0 border-t px-1 py-2.5">
       <h3 className="flex items-center gap-2 text-sm font-medium">
         <StatusIcon tone={items.length > 0 ? tone : "done"} className="size-4" />
         {label}
@@ -80,12 +83,13 @@ export function Attention({ file, stored, today }: SectionProps) {
         <div className="min-w-0 border-b">
         <Ledger
           label="Overdue"
+          look="overdue"
           tone="urgent"
           items={late}
           empty="No open task is past its due date."
           render={(entry) => (
             <div className={lineClass}>
-              <button type="button" title={entry.title} className={openClass} onClick={() => openRef(entry.ref)}>
+              <button type="button" title={entry.title} className={openClass} onClick={(event) => openRef(entry.ref, event.currentTarget)}>
                 <span className={titleClass}>{entry.title || "Untitled task"}</span>
               </button>
               <span className={asideClass}>
@@ -98,12 +102,13 @@ export function Attention({ file, stored, today }: SectionProps) {
         <div className="min-w-0 border-b max-lg:border-t-0">
         <Ledger
           label={`Coming up in ${AHEAD} days`}
+          look="coming"
           tone="mild"
           items={coming}
           empty={`No task is due and nothing is on the calendar in the next ${AHEAD} days.`}
           render={(entry) => (
             <div className={lineClass}>
-              <button type="button" title={entry.title} className={openClass} onClick={() => openRef(entry.ref)}>
+              <button type="button" title={entry.title} className={openClass} onClick={(event) => openRef(entry.ref, event.currentTarget)}>
                 <span className={titleClass}>{entry.title || `Untitled ${KIND_WORD[entry.kind]}`}</span>
               </button>
               <span className={asideClass}>
@@ -115,6 +120,7 @@ export function Attention({ file, stored, today }: SectionProps) {
         />
         <Ledger
           label="To decide"
+          look="decide"
           tone="mild"
           items={brief.decisions}
           empty="The file shows no decision waiting on the attorney."

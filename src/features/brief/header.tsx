@@ -65,7 +65,7 @@ export function CaseHeader({
         <p>
           Read from Clio <LocalTime iso={file.syncedAt} />
         </p>
-        <CheckClio matterId={file.matterId} fingerprint={file.fingerprint} />
+        <CheckClio matterId={file.matterId} fingerprint={file.fingerprint} entries={file.entries.length} />
         <a
           href={clioMatterUrl(file.matterId)}
           target="_blank"
