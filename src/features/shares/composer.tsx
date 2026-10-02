@@ -96,6 +96,7 @@ export function Composer({ matterId, contactRef, providerName, head, storedDraft
       opens: 0,
       lastOpenedAt: null,
       replies: [],
+      files: [],
     });
   }
   const live = log.find((share) => !share.revoked && Date.parse(share.expiresAt) > Date.parse(now)) ?? null;
@@ -436,7 +437,7 @@ export function Composer({ matterId, contactRef, providerName, head, storedDraft
               What {providerName} will see
             </h2>
             <div className="min-h-48 overflow-y-auto rounded-md border bg-card px-5 py-6">
-              <ProviderUpdateView update={update} replies={live?.replies ?? []} preview />
+              <ProviderUpdateView update={update} replies={live?.replies ?? []} files={live?.files ?? []} preview />
             </div>
           </aside>
         </div>

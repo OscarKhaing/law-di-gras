@@ -6,7 +6,7 @@ import { getCaseFile } from "@/features/cases/server";
 import { getPageNotes } from "@/features/documents/server";
 import { extract } from "@/server/llm";
 import { supabase } from "@/server/supabase";
-import { asReply, hashOf, ShareError } from "./link";
+import { asFile, asReply, hashOf, nameInShare, ShareError } from "./link";
 import { buildPrompt, SYSTEM, type MaterialItem, type ProviderMaterial } from "./prompt";
 import {
   ATTORNEYS_CALL,
@@ -369,7 +369,12 @@ export async function getDraft(matterId: number, contactRef: string): Promise<Dr
   return (await liveShare(matterId, contactRef))?.draft ?? null;
 }
 
-type EventRow = { share_id: string; kind: string; detail: { lineId?: unknown; text?: unknown } | null; at: string };
+type EventRow = {
+  share_id: string;
+  kind: string;
+  detail: { lineId?: unknown; text?: unknown; name?: unknown; path?: unknown; bytes?: unknown } | null;
+  at: string;
+};
 
 /** Every update shared from a case, newest first, with how often it was opened and what came back. */
 export async function sharesFor(matterId: number): Promise<ShareStatus[]> {
@@ -401,8 +406,30 @@ export async function sharesFor(matterId: number): Promise<ShareStatus[]> {
       opens: opens.length,
       lastOpenedAt: opens.at(-1)?.at ?? null,
       replies: mine.filter((event) => event.kind === "replied").map(asReply),
+      files: mine.filter((event) => event.kind === "uploaded").map(asFile),
     };
   });
+}
+
+/**
+ * A short-lived address at which the firm can open a file a provider's office sent. The path must
+ * be in that share's own folder and must be a file the office confirmed; nothing is written to Clio.
+ */
+export async function receivedFileUrl(shareId: string, path: string): Promise<{ url: string }> {
+  valid(z.uuid(), shareId, "The update");
+  const unknown = new ShareError("That file is not one this office sent with the update.", 404);
+  if (nameInShare(shareId, path) === null) throw unknown;
+  const db = supabase();
+  const { data: rows, error: unread } = await db
+    .from("share_events")
+    .select("detail, at")
+    .eq("share_id", shareId)
+    .eq("kind", "uploaded");
+  if (unread) throw unread;
+  if (!(rows ?? []).map(asFile).some((file) => file.path === path)) throw unknown;
+  const { data, error } = await db.storage.from("documents").createSignedUrl(path, 300);
+  if (error) throw new ShareError("The file could not be opened. It may have been removed from storage.", 404);
+  return { url: data.signedUrl };
 }
 
 /**

@@ -5,6 +5,7 @@ import { StatusPill } from "@/components/status";
 import { Button } from "@/components/ui/button";
 import { postJson } from "@/lib/fetch-json";
 import { LocalTime } from "./local-time";
+import { ReceivedFileLink } from "./received-file";
 import type { ShareStatus } from "./schema";
 
 type Props = {
@@ -32,14 +33,15 @@ export function ShareLog({ providerName, shares, published, now, onWithdrawn }: 
         </h2>
         {shares.length > 0 && (
           <p className="max-w-prose text-sm text-muted-foreground">
-            Every time the link is opened it is counted, your own visits included. A reply from the office is kept here; nothing
-            is written to Clio.
+            Every time the link is opened it is counted, your own visits included. A reply or a file from the office is kept
+            here; nothing is written to Clio.
           </p>
         )}
       </div>
       {shares.length === 0 ? (
         <p className="border-y py-3 text-sm text-muted-foreground">
-          Nothing has been shared with {providerName} yet. Once you publish, the link, its opens and any replies are listed here.
+          Nothing has been shared with {providerName} yet. Once you publish, the link, its opens and any replies and files are
+          listed here.
         </p>
       ) : (
         <div className="divide-y border-y">
@@ -115,9 +117,8 @@ function ShareRow({
           )}
         </p>
 
-        {share.replies.length === 0 ? (
-          <p className="text-muted-foreground">The office has not replied.</p>
-        ) : (
+        {share.replies.length === 0 && share.files.length === 0 && <p className="text-muted-foreground">The office has not replied.</p>}
+        {share.replies.length > 0 && (
           <ul className="space-y-2">
             {share.replies.map((reply, index) => {
               const asked = lines.find((line) => line.id === reply.lineId)?.text;
@@ -134,6 +135,32 @@ function ShareRow({
                       </>
                     ) : (
                       "In answer to a line that is no longer part of the update."
+                    )}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        {share.files.length > 0 && (
+          <ul className="space-y-2">
+            {share.files.map((file) => {
+              const asked = lines.find((line) => line.id === file.lineId)?.text;
+              return (
+                <li key={file.path} className="max-w-prose border-l-2 border-marker bg-marker-soft px-3 py-2">
+                  <p className="text-xs text-muted-foreground">
+                    Received from the provider, not yet in Clio, sent <LocalTime iso={file.at} style="sent" />
+                  </p>
+                  <p className="mt-0.5 text-sm text-muted-foreground">
+                    <ReceivedFileLink shareId={share.id} file={file} />
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                    {asked ? (
+                      <>
+                        Sent for: <span className="font-serif text-[13px] text-foreground">{asked}</span>
+                      </>
+                    ) : (
+                      "Sent for a line that is no longer part of the update."
                     )}
                   </p>
                 </li>

@@ -68,6 +68,12 @@ export type ProviderUpdate = {
 /** Something the provider's office wrote back. `lineId` is the request it answers. */
 export type Reply = { lineId: string | null; text: string; at: string };
 
+/** A file the provider's office sent with its answer to one request, as its own page lists it. */
+export type SentFile = { lineId: string | null; name: string; bytes: number; at: string };
+
+/** The same file as the firm sees it: `path` is where it is kept in our private storage, never in Clio. */
+export type ReceivedFile = SentFile & { path: string };
+
 /** What the firm sees about an update it shared. */
 export type ShareStatus = {
   id: string;
@@ -80,11 +86,29 @@ export type ShareStatus = {
   lastOpenedAt: string | null;
   /** What the provider wrote back. It lives in our database; nothing is written to Clio. */
   replies: Reply[];
+  /** Files the provider's office attached. They are kept in our storage; nothing is written to Clio. */
+  files: ReceivedFile[];
 };
 
 // ---- What a request may carry. Everything is checked against these before it reaches the database. ----
 
 export const REPLY_LIMIT = 2000;
+
+/** The kinds of file a provider's office may attach, by the type the browser reports, and what each is called. */
+export const FILE_KINDS: Record<string, string> = { "application/pdf": "PDF", "image/jpeg": "JPEG", "image/png": "PNG" };
+/** What the page says of them, and what the file chooser offers. */
+export const FILE_KINDS_SAID = "PDF, JPEG or PNG";
+export const FILE_ACCEPT = ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png";
+export const FILE_MAX_BYTES = 20 * 1024 * 1024;
+export const FILE_MAX_MB = FILE_MAX_BYTES / (1024 * 1024);
+/** How many files one link takes in all. */
+export const FILES_PER_SHARE = 10;
+
+/** A file's size as a person says it: "340 KB", "4.2 MB". */
+export function fileSize(bytes: number) {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1).replace(/\.0$/, "")} MB`;
+}
 
 export const MatterId = z.number().int().positive();
 export const ContactRef = z.string().regex(/^P\d+$/, "Not a contact on the case.");
@@ -108,4 +132,5 @@ export const DraftLines = z
 export const DraftBody = z.object({ matterId: MatterId, contactRef: ContactRef });
 export const PublishBody = z.object({ matterId: MatterId, contactRef: ContactRef, lines: DraftLines });
 export const RevokeBody = z.object({ shareId: z.uuid() });
+export const FileBody = z.object({ shareId: z.uuid(), path: z.string().min(1).max(300) });
 export const ReplyBody = z.object({ token: ShareToken, lineId: LineId, text: z.string().trim().min(1).max(REPLY_LIMIT) });

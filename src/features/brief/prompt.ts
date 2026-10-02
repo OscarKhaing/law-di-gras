@@ -104,3 +104,55 @@ export function buildPrompt(file: CaseFile, pages: Record<string, PageNote[]>, t
   );
   return parts.join("\n");
 }
+
+// ---- A follow-up to someone the firm is waiting on ----
+
+export const FOLLOW_UP_SYSTEM = `You draft a follow-up email for a personal injury law firm to someone who owes the firm a reply, a document or a date. A person at the firm will read it, change it and send it themselves; nothing you write is sent automatically.
+
+You are given one request the firm is waiting on and the entries of the firm's file that record it: emails, phone calls, notes and documents, each with its date and who it was from and to. That is everything you know about the case.
+
+Rules:
+- Write from the named person at the firm to the recipient named under TO. Courteous, factual and brief: the body is under 130 words.
+- Say what was asked for and when, giving the date of each earlier request you mention as it appears on its entry. If the recipient answered, say what they answered and when.
+- Ask for what is still outstanding, and ask the recipient to say by what date they will provide it.
+- State nothing that is not in the entries given. Never give a number of earlier requests unless an entry itself states it or the entries shown add up to it. Do not invent a deadline, a telephone number, a file or claim number, an attachment or a consequence.
+- A note is the firm's internal record, and a message to or from anyone other than the recipient is background. Use them to understand the request; never repeat to the recipient their wording, their reasoning or anything they reveal.
+- The date on a document is the day it was put in the firm's file, not the date written on the document itself. Do not give it as the document's date.
+- Give no view on liability, fault, what the claim is worth, settlement or the firm's tactics. Do not say why the firm needs the item unless a message already sent to this same recipient said so.
+- The codes in square brackets are the firm's own filing marks. Never put them in the email.
+- Plain text only, in short paragraphs: no markdown, no lists, no bullet characters, no placeholders in square brackets. Begin with a salutation, end with the sender's name and the firm's name, and write dates in words, such as March 5, 2025.
+- The subject is one short plain line naming the client and what is requested.`;
+
+/** What a follow-up is drafted from: one request and the entries that record it, and nothing else of the case. */
+export type FollowUpMaterial = {
+  today: string;
+  /** Who signs it: the firm's person as Clio names them, and the firm. */
+  sender: { person: string; firm: string };
+  client: string;
+  /** Who the email goes to and what they are to the firm, and who owes the item as the brief names them. */
+  recipient: { name: string; relation: string; owedBy: string };
+  what: string;
+  /** The entries the brief cites for this request, oldest first, with any passage it quoted from a page of a document. */
+  cited: { entry: Entry; passages: { page: number; quote: string }[] }[];
+};
+
+/** One request and its own thread as text, followed by what to write. */
+export function buildFollowUpPrompt(material: FollowUpMaterial): string {
+  const { sender, recipient } = material;
+  const parts = [
+    `Today is ${material.today}.`,
+    `FROM: ${sender.person ? `${sender.person} at ${sender.firm}` : sender.firm}`,
+    `THE FIRM'S CLIENT: ${material.client}`,
+    `TO: ${recipient.name}, ${recipient.relation}`,
+    `STILL OUTSTANDING, in the firm's own summary: ${material.what}${recipient.owedBy !== recipient.name ? ` (owed by: ${recipient.owedBy})` : ""}`,
+    "\n===== THE ENTRIES THAT RECORD THIS REQUEST, OLDEST FIRST =====",
+    material.cited
+      .map(({ entry, passages }) =>
+        [describe(entry), ...passages.map((passage) => `Page ${passage.page} reads: "${passage.quote}"`)].join("\n"),
+      )
+      .join("\n\n"),
+    "\n===== WHAT TO WRITE =====",
+    "Write the follow-up email for this one request: its subject line and its body.",
+  ];
+  return parts.join("\n");
+}

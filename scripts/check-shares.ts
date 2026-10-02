@@ -1,5 +1,5 @@
 // Check the provider link end to end against the database, without a browser or a model:
-//   pnpm -s script scripts/check-shares.ts            publish, open, reply, republish, withdraw, then delete what it made
+//   pnpm -s script scripts/check-shares.ts            publish, open, reply, attach a file, republish, withdraw, then delete what it made
 //   pnpm -s script scripts/check-shares.ts --keep     stop after the reply and print the page's address, to look at it
 //   pnpm -s script scripts/check-shares.ts --remove <share id>    delete a share left by --keep
 //   pnpm -s script scripts/check-shares.ts --material <contact ref>    print what the drafting model would be sent for that provider
@@ -8,8 +8,9 @@
 import { getBrief } from "@/features/brief/server";
 import { getCaseFile, listCases } from "@/features/cases/server";
 import type { DraftLine } from "@/features/shares/schema";
-import { getShareByToken, recordOpen, replyToShare, ShareError } from "@/features/shares/link";
-import { getDraft, previewMaterial, publishShare, revokeShare, sharesFor } from "@/features/shares/server";
+import { FILE_MAX_BYTES } from "@/features/shares/schema";
+import { finishUpload, getShareByToken, recordOpen, replyToShare, ShareError, startUpload } from "@/features/shares/link";
+import { getDraft, previewMaterial, publishShare, receivedFileUrl, revokeShare, sharesFor } from "@/features/shares/server";
 import { supabase } from "@/server/supabase";
 
 let failures = 0;
@@ -19,10 +20,25 @@ function check(what: string, ok: boolean, detail = "") {
 }
 
 async function remove(shareId: string) {
+  if (!/^[0-9a-f-]{36}$/.test(shareId ?? "")) throw new Error("Give the id of the share to remove.");
+  // The files sent through the share are in its own folder of the bucket; they go with it.
+  const storage = supabase().storage.from("documents");
+  const { data: held } = await storage.list(`shares/${shareId}`, { limit: 100 });
+  if (held?.length) await storage.remove(held.map((object) => `shares/${shareId}/${object.name}`));
   const { error } = await supabase().from("shares").delete().eq("id", shareId);
   if (error) throw error;
-  console.log(`Deleted share ${shareId} and its events.`);
+  console.log(`Deleted share ${shareId}, its events and ${held?.length ?? 0} file(s).`);
 }
+
+/** Whether a call was refused with a ShareError, as a request that must not go through should be. */
+const refused = (call: Promise<unknown>) => call.then(() => false, (err) => err instanceof ShareError);
+
+/** Send bytes to a one-time upload address the way the office's browser does. */
+const put = (url: string, bytes: Uint8Array<ArrayBuffer>, type: string) => fetch(url, { method: "PUT", headers: { "Content-Type": type }, body: bytes });
+
+const text = (words: string) => new Uint8Array(new TextEncoder().encode(words));
+// The smallest thing that starts the way a PDF does. It is test bytes, not a record.
+const TEST_PDF = text("%PDF-1.4\n% a test file from scripts/check-shares.ts\n%%EOF\n");
 
 const line = (id: string, section: string, text: string, share: boolean): DraftLine => ({
   id,
@@ -118,6 +134,44 @@ async function main() {
     ]);
     check("a reply to a line that was not shared, a reply over 2,000 characters and an empty reply are refused", refusals.every(Boolean));
 
+    // Attaching a file: asked for, sent straight to storage, then confirmed.
+    const pdf = "application/pdf";
+    check("an upload is refused for a dead link", await refused(startUpload(`${token.slice(0, -4)}AAAA`, "check-2", "test.pdf", pdf, TEST_PDF.length)));
+    check("an upload is refused for a line that was not shared", await refused(startUpload(token, "check-3", "test.pdf", pdf, TEST_PDF.length)));
+    check("an upload of a kind that is not a PDF, JPEG or PNG is refused", await refused(startUpload(token, "check-2", "test.docx", "application/msword", 1000)));
+    check("an upload over 20 MB is refused", await refused(startUpload(token, "check-2", "test.pdf", pdf, FILE_MAX_BYTES + 1)));
+
+    const slot = await startUpload(token, "check-2", "../Test file (1).PDF", pdf, TEST_PDF.length);
+    check(
+      "the file's place is in the share's own folder, under a safe name",
+      slot.path.startsWith(`shares/${published.shareId}/`) && /^[0-9a-f]{16}-Test-file-1\.pdf$/.test(slot.path.split("/")[2] ?? ""),
+      slot.path,
+    );
+    check("a file that has not arrived is not recorded", await refused(finishUpload(token, "check-2", slot.path)));
+    const sent = await put(slot.url, TEST_PDF, pdf);
+    check("the browser can send the file straight to storage", sent.ok, `${sent.status}`);
+    const outside = [`shares/${published.shareId}/../${slot.path.split("/")[2]}`, slot.path.replace(published.shareId, "00000000-0000-4000-8000-000000000000"), "clio/test.pdf"];
+    check("a path outside the share's folder is refused", (await Promise.all(outside.map((path) => refused(finishUpload(token, "check-2", path))))).every(Boolean));
+    const recorded = await finishUpload(token, "check-2", slot.path);
+    check("the file is recorded with its name and size", recorded.name === "Test-file-1.pdf" && recorded.bytes === TEST_PDF.length, `${recorded.name}, ${recorded.bytes} bytes`);
+    await finishUpload(token, "check-2", slot.path);
+    const listed = await getShareByToken(token);
+    check("the office's page lists it once, without where it is kept", listed?.files.length === 1 && !JSON.stringify(listed.files).includes("shares/"));
+
+    // A file that is not what it says it is: sent as a PDF, but its bytes are plain text.
+    const fake = await startUpload(token, "check-2", "not-a-pdf.pdf", pdf, 20);
+    await put(fake.url, text("just some plain text"), pdf);
+    check("a file whose contents are not a PDF, JPEG or PNG is refused", await refused(finishUpload(token, "check-2", fake.path)));
+    const { data: left } = await supabase().storage.from("documents").list(`shares/${published.shareId}`);
+    check("and is deleted from storage", left?.length === 1, `${left?.length} file(s) in the folder`);
+
+    const seen = (await sharesFor(first.matterId)).find((share) => share.id === published.shareId);
+    check("the firm sees the file on the share", seen?.files.length === 1 && seen.files[0].path === slot.path && seen.files[0].lineId === "check-2");
+    const opening = await receivedFileUrl(published.shareId, slot.path);
+    const fetched = await fetch(opening.url);
+    check("the firm can open it", fetched.ok && (await fetched.arrayBuffer()).byteLength === TEST_PDF.length);
+    check("the firm cannot open a path the office did not send", await refused(receivedFileUrl(published.shareId, fake.path)));
+
     if (keep) {
       console.log(`\nKept. Open http://localhost:3000/p/${token}`);
       console.log(`Remove it with: pnpm -s script scripts/check-shares.ts --remove ${published.shareId}`);
@@ -139,6 +193,8 @@ async function main() {
     check("the link can be withdrawn", revoked.revoked);
     check("a withdrawn link opens nothing", (await getShareByToken(token)) === null);
     check("a withdrawn link takes no reply", await replyToShare(token, "check-2", "x").then(() => false, (err) => err instanceof ShareError));
+    check("a withdrawn link takes no file", await refused(startUpload(token, "check-2", "test.pdf", pdf, TEST_PDF.length)));
+    check("a file sent before the link was withdrawn cannot be confirmed after", await refused(finishUpload(token, "check-2", slot.path)));
     check("no draft is live after withdrawing", (await getDraft(file.matterId, provider.ref)) === null);
   } finally {
     if (!keep) await remove(published.shareId);

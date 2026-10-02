@@ -47,7 +47,7 @@ export default async function ProviderPage({ params }: PageProps<"/p/[token]">) 
 
   return (
     <main className="mx-auto w-full max-w-3xl px-5 py-8 sm:px-8 sm:py-14">
-      <ProviderUpdateView update={share.update} replies={share.replies} token={token} />
+      <ProviderUpdateView update={share.update} replies={share.replies} files={share.files} token={token} />
     </main>
   );
 }

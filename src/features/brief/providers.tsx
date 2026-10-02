@@ -5,6 +5,7 @@ import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { StatusPill } from "@/components/status";
 import { byRef, parseSource, shortDate, type CaseFile, type Entry, clioMatterId } from "@/features/cases/schema";
+import { ReceivedFileLink } from "@/features/shares/received-file";
 import type { ShareStatus } from "@/features/shares/schema";
 import { cn } from "@/lib/utils";
 import { Disclosure, useFold } from "./fold";
@@ -116,6 +117,9 @@ function ProviderRow({
   const replies = mine
     .flatMap((share) => share.replies)
     .sort((a, b) => b.at.localeCompare(a.at));
+  const files = mine
+    .flatMap((share) => share.files.map((file) => ({ shareId: share.id, file })))
+    .sort((a, b) => b.file.at.localeCompare(a.file.at));
 
   return (
     <div className="grid gap-x-6 gap-y-1.5 py-2 lg:grid-cols-[13rem_minmax(0,1fr)_13rem_8.5rem] 2xl:grid-cols-[16rem_minmax(0,1fr)_15rem_9.5rem]">
@@ -126,16 +130,7 @@ function ProviderRow({
           {person.did ? <>{person.did} </> : <span className="text-muted-foreground">The file does not say what care was given. </span>}
           <Sources person={person} file={file} />
         </p>
-        {replies.map((reply, index) => (
-          <p key={index} className="w-fit border-l-2 border-marker bg-marker-soft px-2.5 py-1">
-            <span className="block text-xs text-muted-foreground">
-              From the provider, not yet in Clio ({dayAt(reply.at, today)}):
-            </span>
-            <span className="font-serif text-[15px] leading-snug">{reply.text}</span>
-          </p>
-        ))}
       </div>
-
       <div className="min-w-0">
         {person.owes ? (
           <Owed>Waiting for: {person.owes}</Owed>
@@ -160,6 +155,26 @@ function ProviderRow({
           {shareLine(mine[0], today)}
         </p>
       </div>
+
+      {/* What the office sent back, under the row and across its width, so a reply or a file name is not squeezed into one column. */}
+      {(replies.length > 0 || files.length > 0) && (
+        <div className="min-w-0 space-y-1.5 lg:col-span-3 lg:col-start-2">
+          {replies.map((reply, index) => (
+            <p key={index} className="w-fit max-w-full border-l-2 border-marker bg-marker-soft px-2.5 py-1">
+              <span className="block text-xs text-muted-foreground">
+                From the provider, not yet in Clio ({dayAt(reply.at, today)}):
+              </span>
+              <span className="font-serif text-[15px] leading-snug">{reply.text}</span>
+            </p>
+          ))}
+          {files.map(({ shareId, file }) => (
+            <p key={file.path} className="w-fit max-w-full border-l-2 border-marker bg-marker-soft px-2.5 py-1 text-xs text-muted-foreground">
+              <span className="block">Received from the provider, not yet in Clio ({dayAt(file.at, today)}):</span>
+              <ReceivedFileLink shareId={shareId} file={file} />
+            </p>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

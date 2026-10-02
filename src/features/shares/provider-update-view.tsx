@@ -1,12 +1,15 @@
+import { StatusPill } from "@/components/status";
 import { StageTrack } from "@/features/cases/stage-track";
 import { LocalTime } from "./local-time";
 import { ReplyBox } from "./reply-box";
-import { PROVIDER_ORDER, SECTION_HEADINGS, sectionOf, type ProviderUpdate, type Reply } from "./schema";
+import { PROVIDER_ORDER, SECTION_HEADINGS, sectionOf, type ProviderUpdate, type Reply, type SentFile } from "./schema";
 
 type Props = {
   update: ProviderUpdate;
   /** What this office has already written back. */
   replies?: Reply[];
+  /** The files this office has already attached to its replies. */
+  files?: SentFile[];
   /** True in the attorney's composer: the page as the office will see it, with replying switched off. */
   preview?: boolean;
   /** The link's token, which a reply is sent with. Left out in a preview. */
@@ -19,15 +22,41 @@ type Props = {
  * It lays itself out by the width of its container, not of the window. Words taken from the
  * firm's update are in the serif face; the page's own words are in the sans.
  */
-export function ProviderUpdateView({ update, replies = [], preview = false, token }: Props) {
+export function ProviderUpdateView({ update, replies = [], files = [], preview = false, token }: Props) {
   const current = update.stages.indexOf(update.stage);
   const sections = PROVIDER_ORDER.map((section) => ({
     section,
     lines: update.lines.filter((line) => sectionOf(line.section) === section),
   })).filter(({ lines }) => lines.length > 0);
+  // Said only when the attorney chose to share a line about insurance; otherwise the page is silent on it.
+  const covered = sections.some(({ section }) => section === "coverage");
+  const pill = "max-w-full px-2.5 py-1 text-sm";
 
   return (
     <article className="@container">
+      {/* The first thing a billing office asks: is the case alive, where is it, and is there coverage. */}
+      <ul aria-label="Where this case stands" className="mb-5 flex flex-wrap gap-2">
+        <li className="max-w-full">
+          <StatusPill tone="done" className={pill}>
+            Case active
+          </StatusPill>
+        </li>
+        {update.stage && (
+          <li className="max-w-full">
+            <StatusPill tone="neutral" className={pill}>
+              <span className="truncate">Stage: {update.stage}</span>
+            </StatusPill>
+          </li>
+        )}
+        {covered && (
+          <li className="max-w-full">
+            <StatusPill tone="done" className={pill}>
+              Coverage confirmed
+            </StatusPill>
+          </li>
+        )}
+      </ul>
+
       <header>
         <p className="text-sm leading-relaxed text-muted-foreground">
           An update for <Words>{update.provider}</Words> from <Words>{update.firm}</Words>, about your patient
@@ -36,10 +65,10 @@ export function ProviderUpdateView({ update, replies = [], preview = false, toke
       </header>
 
       <section className="mt-8">
-        <h2 className="font-heading text-xl font-semibold">This case is active</h2>
+        <h2 className="sr-only">The stage of the case</h2>
         {update.stage ? (
           <>
-            <div className="mt-2 font-serif text-lg">
+            <div className="font-serif text-lg">
               <StageTrack stage={update.stage} stages={update.stages} />
             </div>
             {current >= 0 && update.stages.length > 1 && (
@@ -56,7 +85,7 @@ export function ProviderUpdateView({ update, replies = [], preview = false, toke
             )}
           </>
         ) : (
-          <p className="mt-2 text-sm text-muted-foreground">The firm has not said which stage it is at.</p>
+          <p className="text-sm text-muted-foreground">The firm has not said which stage the case is at.</p>
         )}
       </section>
 
@@ -81,6 +110,7 @@ export function ProviderUpdateView({ update, replies = [], preview = false, toke
                         token={preview ? undefined : token}
                         lineId={line.id}
                         earlier={replies.filter((reply) => reply.lineId === line.id)}
+                        earlierFiles={files.filter((file) => file.lineId === line.id)}
                       />
                     )}
                   </li>

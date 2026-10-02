@@ -6,6 +6,7 @@ import { createContext, useContext, useRef, type ReactNode } from "react";
 import { CountBadge, StatusIcon, type Tone } from "@/components/status";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { RoleSwitch, inReadingOrder, useRole } from "./role";
 
 export type CaseTab = {
   id: string;
@@ -13,7 +14,10 @@ export type CaseTab = {
   icon: ReactNode;
   /** Counts beside the label, coloured by how pressing they are; zero counts are left out. */
   badges?: { tone: Tone; count: number; label: string }[];
-  /** Starts a new group in the menu, set apart by space rather than a rule. */
+  /**
+   * Starts a new group in the menu, set apart by space rather than a rule. The groups now come from
+   * the reader's order (READING_ORDER in role.tsx); this is used only for a part that order does not list.
+   */
   startsGroup?: boolean;
   content: ReactNode;
 };
@@ -38,22 +42,30 @@ const itemClass = cn(
  * menu of its parts, each with coloured counts; it stays in view while the reading area scrolls.
  * The open part is kept in the address (`?tab=money`), so Back, reload and a shared link land on
  * it. Every part stays mounted while hidden, so a search or a selection survives switching away.
+ *
+ * "Reading as" above the menu puts the parts in the reader's order and decides which one opens
+ * when the address names none. It never removes a part, and a part named in the address wins.
+ *
+ * The menu is headed "In this case" and its counts say so too, because the firm's sidebar beside
+ * it lists the same kinds of things (overdue, waiting) counted across every case.
  */
 export function CaseTabs({ side, notice, tabs }: { side: ReactNode; notice?: ReactNode; tabs: CaseTab[] }) {
   const pathname = usePathname();
   const params = useSearchParams();
   const start = useRef<HTMLDivElement>(null);
+  const [role, setRole] = useRole();
+  const menu = inReadingOrder(role, tabs);
   const requested = params.get("tab");
-  const active = tabs.some((tab) => tab.id === requested) ? requested! : tabs[0].id;
+  const active = menu.some((tab) => tab.id === requested) ? requested! : menu[0].id;
 
   function open(id: string) {
     if (id === active) return;
     const next = new URLSearchParams(params.toString());
-    if (id === tabs[0].id) next.delete("tab");
-    else next.set("tab", id);
-    const query = next.toString();
+    // A part the reader chose is always named in the address, the first one too: which part is
+    // first depends on who is reading, and a link must open the same part for whoever follows it.
+    next.set("tab", id);
     // The history API updates the address without asking the server for the page again.
-    window.history.pushState(null, "", query ? `${pathname}?${query}` : pathname);
+    window.history.pushState(null, "", `${pathname}?${next.toString()}`);
     // From far down a long part, come back up to the start of the new one.
     if (start.current && start.current.getBoundingClientRect().top < 0) start.current.scrollIntoView({ block: "start" });
   }
@@ -66,22 +78,33 @@ export function CaseTabs({ side, notice, tabs }: { side: ReactNode; notice?: Rea
         orientation="vertical"
         className="grid items-start gap-6 lg:grid-cols-[14rem_minmax(0,1fr)] lg:gap-8"
       >
-        <aside className="min-w-0 space-y-3 lg:sticky lg:top-6">
+        {/* On a short window the column is taller than the screen: it then scrolls on its own, so the
+            last parts of the menu can always be reached. The side padding keeps the cards' edges
+            from being clipped by that scrolling. */}
+        <aside className="min-w-0 space-y-3 lg:sticky lg:top-6 lg:-mx-1 lg:max-h-[calc(100dvh-3rem)] lg:overflow-y-auto lg:px-1 lg:pb-1 lg:[scrollbar-width:thin]">
           {side}
-          <TabsPrimitive.List
-            aria-label="Parts of the case"
-            className="flex gap-0.5 overflow-x-auto rounded-2xl border bg-card p-1.5 shadow-xs lg:flex-col lg:overflow-visible"
-          >
-            {tabs.map((tab) => (
-              <TabsPrimitive.Tab key={tab.id} value={tab.id} className={cn(itemClass, tab.startsGroup && "max-lg:ml-3 lg:mt-5")}>
-                {tab.icon}
-                <span className="flex-1">{tab.label}</span>
-                {tab.badges
-                  ?.filter((badge) => badge.count > 0)
-                  .map((badge) => <CountBadge key={badge.label} tone={badge.tone} count={badge.count} label={badge.label} />)}
-              </TabsPrimitive.Tab>
-            ))}
-          </TabsPrimitive.List>
+          <div className="rounded-2xl border bg-card shadow-xs">
+            <RoleSwitch role={role} onChange={setRole} className="border-b p-3" />
+            {/* The firm's sidebar counts cases across the whole firm; this menu and its counts are
+                about the one case that is open. The label says so, in the same quiet words the
+                sidebar uses over its own lists. */}
+            <p id="case-parts" className="px-4.5 pt-3 text-xs text-muted-foreground">
+              In this case
+            </p>
+            <TabsPrimitive.List aria-labelledby="case-parts" className="flex gap-0.5 overflow-x-auto p-1.5 lg:flex-col lg:overflow-visible">
+              {menu.map((tab) => (
+                <TabsPrimitive.Tab key={tab.id} value={tab.id} className={cn(itemClass, tab.startsGroup && "max-lg:ml-3 lg:mt-4")}>
+                  {tab.icon}
+                  <span className="flex-1">{tab.label}</span>
+                  {tab.badges
+                    ?.filter((badge) => badge.count > 0)
+                    .map((badge) => (
+                      <CountBadge key={badge.label} tone={badge.tone} count={badge.count} label={`${badge.label} in this case`} />
+                    ))}
+                </TabsPrimitive.Tab>
+              ))}
+            </TabsPrimitive.List>
+          </div>
         </aside>
         <div ref={start} className="min-w-0 scroll-mt-6 space-y-4">
           {notice}
