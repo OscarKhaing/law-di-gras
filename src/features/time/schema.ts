@@ -316,6 +316,9 @@ export function totals(rows: TimeRow[]): Totals {
 /** Minutes as hours to one decimal: 90 is "1.5". */
 export const hours = (minutes: number) => (Math.round(minutes / 6) / 10).toFixed(1);
 
+/** A length of time for a row or a bar: under an hour in minutes ("7 min"), otherwise in hours ("1.5 h"), so a short call does not read as nothing. */
+export const timeSpan = (minutes: number) => (minutes > 0 && minutes < 60 ? `${Math.round(minutes)} min` : `${hours(minutes)} h`);
+
 /** What a person's time is worth at an hourly rate, in dollars to the cent. */
 export const worth = (minutes: number, rate: number) => Math.round((minutes / 60) * positive(rate) * 100) / 100;
 

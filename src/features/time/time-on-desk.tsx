@@ -19,6 +19,7 @@ import {
   WORK_WORD,
   byPhase,
   hours,
+  timeSpan,
   timeOnDesk,
   totals,
   worth,
@@ -238,7 +239,7 @@ export function TimeOnDesk({ file, stored, pages, calls, today }: SectionProps) 
                 <dt className="flex items-center gap-2 font-medium">
                   <Mark basis="measured" />
                   Measured
-                  <span className="tabular-nums">{hours(sum.measured)} h</span>
+                  <span className="tabular-nums">{timeSpan(sum.measured)}</span>
                 </dt>
                 <dd className="pl-[1.125rem] text-muted-foreground">
                   {sum.measured > 0
@@ -250,7 +251,7 @@ export function TimeOnDesk({ file, stored, pages, calls, today }: SectionProps) 
                 <dt className="flex items-center gap-2 font-medium">
                   <Mark basis="estimated" />
                   Estimated
-                  <span className="tabular-nums">{hours(sum.estimated)} h</span>
+                  <span className="tabular-nums">{timeSpan(sum.estimated)}</span>
                 </dt>
                 <dd className="pl-[1.125rem] text-muted-foreground">
                   Minutes given by the rule to each note, email, logged call and document.
@@ -389,7 +390,7 @@ export function TimeOnDesk({ file, stored, pages, calls, today }: SectionProps) 
               {rated.map((person, index) => (
                 <li key={person.person} className={cn(WORTH_ROW, "py-1.5")}>
                   <span className="font-serif text-[15px] leading-snug">{person.person}</span>
-                  <span className="text-right text-sm tabular-nums">{hours(person.minutes)} h</span>
+                  <span className="text-right text-sm tabular-nums">{timeSpan(person.minutes)}</span>
                   <label className="flex items-center gap-1 text-sm whitespace-nowrap text-muted-foreground">
                     <span aria-hidden>$</span>
                     <Input
@@ -414,7 +415,7 @@ export function TimeOnDesk({ file, stored, pages, calls, today }: SectionProps) 
                 <span className="text-sm font-medium">
                   The firm&rsquo;s time at {unrated.length === 0 && rated.length === 1 ? "this rate" : "these rates"}
                 </span>
-                <span className="text-right text-sm tabular-nums">{hours(ratedMinutes)} h</span>
+                <span className="text-right text-sm tabular-nums">{timeSpan(ratedMinutes)}</span>
                 <span />
                 <span className="text-right text-[15px] font-semibold tabular-nums">{dollars(value)}</span>
               </div>
@@ -626,9 +627,9 @@ function Hours({ share }: { share: Share }): ReactNode {
       <span className="inline-flex items-center gap-1.5">
         {single && <Mark basis={basis} />}
         {single && <span className="sr-only">{basis}: </span>}
-        {hours(share.minutes)} h
+        {timeSpan(share.minutes)}
       </span>
-      {mixed && <span className="block text-xs text-muted-foreground">{hours(share.measured)} measured</span>}
+      {mixed && <span className="block text-xs text-muted-foreground">{timeSpan(share.measured)} measured</span>}
     </span>
   );
 }
