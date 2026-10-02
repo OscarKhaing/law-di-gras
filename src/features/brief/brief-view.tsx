@@ -5,6 +5,7 @@ import { overdue, shortDate, upcoming, type CaseFile } from "@/features/cases/sc
 import { addDays, daysBetween } from "@/features/cases/words";
 import type { ShareStatus } from "@/features/shares/schema";
 import { AskBar } from "@/features/ask/ask-bar";
+import { CallHistory } from "@/features/calls/call-history";
 import type { CallLog } from "@/features/calls/schema";
 import type { PageNote } from "@/features/documents/schema";
 import { TimeOnDesk } from "@/features/time/time-on-desk";
@@ -185,6 +186,9 @@ export function BriefView({
         <div className="space-y-6">
           <Panel>
             <Chase {...section} />
+          </Panel>
+          <Panel>
+            <CallHistory calls={calls} />
           </Panel>
           <Panel>
             <Attention {...section} />

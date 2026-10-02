@@ -94,12 +94,14 @@ async function keep(matterId: number, fingerprint: string, value: StageStart[]) 
 }
 
 /** When each stage of a case began and the entry that shows it, in the firm's order. One model call, kept until Clio changes. */
-export async function stageDates(matterId: number, signal?: AbortSignal): Promise<StageStart[]> {
+export async function stageDates(matterId: number, signal?: AbortSignal, onlyIfKept = false): Promise<StageStart[] | null> {
   const file = await getCaseFile(matterId);
   if (!file) throw new Error("This case has not been read from Clio yet.");
   if (file.stages.length === 0) return [];
   const before = await cached(matterId, file.fingerprint);
   if (before) return before;
+  // Opening a case never calls a model: without a kept answer, the reader asks for it.
+  if (onlyIfKept) return null;
 
   const { data } = await extract(StageDates, {
     model: MODEL,

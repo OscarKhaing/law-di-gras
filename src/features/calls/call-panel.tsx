@@ -36,7 +36,8 @@ function outcome(log: CallLog | null): string {
   if (!log || log.seconds === null) return "Call ended. Its length will appear on the case when the phone carrier reports it.";
   if (log.status === "no-answer") return "No answer. Nothing was added to time on desk.";
   if (log.status === "busy") return "The line was busy. Nothing was added to time on desk.";
-  if (log.status === "failed") return "The call did not go through. Nothing was added to time on desk.";
+  if (log.status === "failed")
+    return "The phone carrier could not place the call, so nothing was added to time on desk. The reason is in the carrier's own log (Twilio console, Monitor, Errors).";
   if (log.status === "canceled" || log.seconds === 0) return "Hung up before anyone answered. Nothing was added to time on desk.";
   return `Call ended. ${callLength(log.seconds)}, counted in time on desk.`;
 }

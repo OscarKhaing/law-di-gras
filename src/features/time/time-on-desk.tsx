@@ -1,7 +1,7 @@
 "use client";
 
 import { LoaderCircleIcon } from "lucide-react";
-import { useId, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { figuresOf } from "@/features/brief/bills";
@@ -127,6 +127,19 @@ export function TimeOnDesk({ file, stored, pages, calls, today }: SectionProps) 
   }, [file, stored]);
   const [fee, setFee] = useState(ASSUMED_FEE);
   const [offer, setOffer] = useState(lastOffer ? lastOffer.amount.toLocaleString("en-US", { maximumFractionDigits: 2 }) : "");
+
+  // If the phases were worked out on an earlier visit, show them at once; this asks only for the kept answer.
+  useEffect(() => {
+    let live = true;
+    postJson<{ stages: StageStart[] | null }>("/api/time/stages", { matterId: file.matterId, kept: true })
+      .then(({ stages }) => {
+        if (live && stages) setPhase((now) => (now.status === "idle" ? { status: "done", stages } : now));
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [file.matterId]);
 
   const workOutPhases = async () => {
     setPhase({ status: "working" });
