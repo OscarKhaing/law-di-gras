@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { StatusPill } from "@/components/status";
 import { Button } from "@/components/ui/button";
 import { postJson } from "@/lib/fetch-json";
 import { LocalTime } from "./local-time";
@@ -84,7 +85,9 @@ function ShareRow({
 
   return (
     <div className="grid gap-x-6 gap-y-2 py-4 sm:grid-cols-[9rem_minmax(0,1fr)]">
-      <p className={state === "Live" ? "text-sm font-medium text-primary" : "text-sm text-muted-foreground"}>{state}</p>
+      <p>
+        <StatusPill tone={state === "Live" ? "done" : "neutral"}>{state}</StatusPill>
+      </p>
 
       <div className="space-y-2 text-sm">
         <p className="max-w-prose leading-relaxed">
@@ -97,18 +100,17 @@ function ShareRow({
             </>
           )}
         </p>
-        <p className={share.opens === 0 ? "text-muted-foreground" : undefined}>
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
           {share.opens === 0 ? (
-            "Not opened yet."
+            <StatusPill tone="mild">Not opened yet</StatusPill>
           ) : (
             <>
-              Opened {share.opens === 1 ? "once" : `${share.opens} times`}
+              <StatusPill tone="done">Opened {share.opens === 1 ? "once" : `${share.opens} times`}</StatusPill>
               {share.lastOpenedAt && (
-                <>
-                  , last <LocalTime iso={share.lastOpenedAt} style="sent" />
-                </>
+                <span className="text-muted-foreground">
+                  last <LocalTime iso={share.lastOpenedAt} style="sent" />
+                </span>
               )}
-              .
             </>
           )}
         </p>

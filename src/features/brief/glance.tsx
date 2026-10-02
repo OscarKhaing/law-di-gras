@@ -1,9 +1,9 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { StatusPill } from "@/components/status";
 import { lastClientContact, shortDate, upcoming } from "@/features/cases/schema";
 import { daysBetween, fromToday } from "@/features/cases/words";
-import { cn } from "@/lib/utils";
 import type { SectionProps } from "./schema";
 import { SourceLinks, useSource } from "./source-panel";
 
@@ -19,16 +19,19 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-/** A value from the record in the serif face, with the app's own remark after it. */
-function Value({ children, remark, marked = false }: { children: ReactNode; remark?: string; marked?: boolean }) {
+/** A value from the record in the serif face, with the app's own remark after it; `urgent` makes the remark red. */
+function Value({ children, remark, urgent = false }: { children: ReactNode; remark?: string; urgent?: boolean }) {
   return (
     <p className="font-serif text-[15px] leading-snug">
       {children}
-      {remark && (
-        <span className={cn("ml-2 font-sans text-xs text-muted-foreground", marked && "bg-marker px-1 text-foreground")}>
-          {remark}
-        </span>
-      )}
+      {remark &&
+        (urgent ? (
+          <StatusPill tone="urgent" className="ml-2 font-sans">
+            {remark}
+          </StatusPill>
+        ) : (
+          <span className="ml-2 font-sans text-xs text-muted-foreground">{remark}</span>
+        ))}
     </p>
   );
 }
@@ -64,7 +67,7 @@ export function Glance({ file, stored, today }: SectionProps) {
             <>
               <Value
                 remark={untilLimitation < 0 ? `passed ${fromToday(file.limitationDate, today)}` : fromToday(file.limitationDate, today)}
-                marked={untilLimitation >= 0 && untilLimitation <= 90}
+                urgent={untilLimitation >= 0 && untilLimitation <= 90}
               >
                 {shortDate(file.limitationDate, true)}
               </Value>

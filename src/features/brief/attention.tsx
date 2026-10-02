@@ -1,20 +1,24 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { StatusDot, StatusPill, type Tone } from "@/components/status";
 import { overdue, shortDate, upcoming, type Entry } from "@/features/cases/schema";
 import { KIND_WORD, addDays, daysBetween, fromToday, span } from "@/features/cases/words";
 import type { SectionProps } from "./schema";
 import { SourceLinks, useSource } from "./source-panel";
 
 const AHEAD = 30;
+/** Within this many days a date is pressing: yellow when coming up, red when a decision is due. */
+const SOON = 7;
 
 const openClass =
   "cursor-pointer rounded-sm text-left font-serif text-[15px] leading-snug underline decoration-input underline-offset-2 outline-none hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring/50";
 
-function Row({ label, count, children }: { label: string; count: number; children: ReactNode }) {
+function Row({ label, count, tone, children }: { label: string; count: number; tone: Tone; children: ReactNode }) {
   return (
     <div className="grid gap-x-6 gap-y-1 border-t py-3 sm:grid-cols-[10rem_minmax(0,1fr)]">
-      <h3 className="text-sm font-medium">
+      <h3 className="flex items-center gap-2 self-start text-sm font-medium">
+        <StatusDot tone={count > 0 ? tone : "done"} />
         {label}
         {count > 0 && <span className="ml-1.5 font-normal text-muted-foreground tabular-nums">{count}</span>}
       </h3>
@@ -51,7 +55,7 @@ export function Attention({ file, stored, today }: SectionProps) {
         Needs attention
       </h2>
       <div className="mt-3 border-b">
-        <Row label="Overdue" count={late.length}>
+        <Row label="Overdue" count={late.length} tone="urgent">
           {late.length === 0 ? (
             <Nothing>No open task is past its due date.</Nothing>
           ) : (
@@ -62,17 +66,19 @@ export function Attention({ file, stored, today }: SectionProps) {
                   <button type="button" className={openClass} onClick={() => openRef(entry.ref)}>
                     {entry.title || "Untitled task"}
                   </button>
-                  <p className="text-xs text-muted-foreground">
-                    <span className="bg-marker px-1 text-foreground">{span(daysBetween(entry.date, today))} late</span> due{" "}
-                    {shortDate(entry.date, true)}
-                    {withPeople(entry)}
+                  <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                    <StatusPill tone="urgent">{span(daysBetween(entry.date, today))} late</StatusPill>
+                    <span>
+                      due {shortDate(entry.date, true)}
+                      {withPeople(entry)}
+                    </span>
                   </p>
                 </>
               )}
             />
           )}
         </Row>
-        <Row label="Coming up" count={coming.length}>
+        <Row label="Coming up" count={coming.length} tone="mild">
           {coming.length === 0 ? (
             <Nothing>No task is due and nothing is on the calendar in the next {AHEAD} days.</Nothing>
           ) : (
@@ -83,16 +89,21 @@ export function Attention({ file, stored, today }: SectionProps) {
                   <button type="button" className={openClass} onClick={() => openRef(entry.ref)}>
                     {entry.title || `Untitled ${KIND_WORD[entry.kind]}`}
                   </button>
-                  <p className="text-xs text-muted-foreground">
-                    {entry.kind === "task" ? "Task due" : "On the calendar"} {shortDate(entry.date)}, {fromToday(entry.date, today)}
-                    {withPeople(entry)}
+                  <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                    <StatusPill tone={daysBetween(today, entry.date) <= SOON ? "mild" : "neutral"}>
+                      {fromToday(entry.date, today)}
+                    </StatusPill>
+                    <span>
+                      {entry.kind === "task" ? "Task due" : "On the calendar"} {shortDate(entry.date)}
+                      {withPeople(entry)}
+                    </span>
                   </p>
                 </>
               )}
             />
           )}
         </Row>
-        <Row label="Waiting on others" count={brief.waiting.length}>
+        <Row label="Waiting on others" count={brief.waiting.length} tone="mild">
           {brief.waiting.length === 0 ? (
             <Nothing>The file shows nothing the firm is waiting on from anyone else.</Nothing>
           ) : (
@@ -111,7 +122,12 @@ export function Attention({ file, stored, today }: SectionProps) {
                       {item.on && item.what ? ": " : ""}
                       {item.what}
                     </p>
-                    {facts.length > 0 && <p className="text-xs text-muted-foreground">Waiting {facts.join(", ")}</p>}
+                    {facts.length > 0 && (
+                      <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                        <StatusPill tone="mild">Waiting</StatusPill>
+                        <span>{facts.join(", ")}</span>
+                      </p>
+                    )}
                     <SourceLinks evidence={item.evidence} />
                   </>
                 );
@@ -119,7 +135,7 @@ export function Attention({ file, stored, today }: SectionProps) {
             />
           )}
         </Row>
-        <Row label="To decide" count={brief.decisions.length}>
+        <Row label="To decide" count={brief.decisions.length} tone="mild">
           {brief.decisions.length === 0 ? (
             <Nothing>The file shows no decision waiting on the attorney.</Nothing>
           ) : (
@@ -129,8 +145,9 @@ export function Attention({ file, stored, today }: SectionProps) {
                 <>
                   <p className="text-[15px] leading-snug">{item.what}</p>
                   {shortDate(item.by) && (
-                    <p className="text-xs text-muted-foreground">
-                      By {shortDate(item.by, true)}, {fromToday(item.by, today)}
+                    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                      <StatusPill tone={daysBetween(today, item.by) <= SOON ? "urgent" : "mild"}>{fromToday(item.by, today)}</StatusPill>
+                      <span>decide by {shortDate(item.by, true)}</span>
                     </p>
                   )}
                   <SourceLinks evidence={item.evidence} />

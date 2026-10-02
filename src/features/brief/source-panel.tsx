@@ -1,11 +1,25 @@
 "use client";
 
+import {
+  CalendarDays,
+  CircleAlert,
+  FileText,
+  Mail,
+  Phone,
+  Receipt,
+  SquareCheck,
+  StickyNote,
+  Tag,
+  User,
+  type LucideIcon,
+} from "lucide-react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Quote, decodeEntities } from "@/components/quote";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
-import { byRef, parseSource, shortDate, type CaseFile, type Entry } from "@/features/cases/schema";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { byRef, parseSource, shortDate, type CaseFile, type Entry, type EntryKind } from "@/features/cases/schema";
 import { KIND_WORD, dollars } from "@/features/cases/words";
 import type { DocumentSource } from "@/features/documents/schema";
 import { SourceViewer } from "@/features/documents/source-viewer";
@@ -14,8 +28,9 @@ import { cn } from "@/lib/utils";
 
 // Contract for every section of the brief page.
 // - Wrap the page in <SourceProvider file={file}>.
-// - After any statement, render <SourceLinks evidence={item.evidence} /> to list where it came from;
-//   selecting one opens the source panel on that entry, or on that page of the document.
+// - After any statement, render <SourceLinks evidence={item.evidence} /> to list where it came from
+//   as small chips (add `quotes` to write the passages out instead); selecting one opens the source
+//   panel on that entry, or on that page of the document.
 // - For an entry of the case file itself, call useSource().openRef(entry.ref).
 
 export type SourceEvidence = { source: string; quote: string; found?: boolean };
@@ -163,7 +178,27 @@ const linkClass =
   "cursor-pointer rounded-sm underline decoration-input underline-offset-2 outline-none hover:text-foreground hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring/50";
 
 /** The sources of one statement: each quoted passage as a marker stroke, each source as a small link. */
-export function SourceLinks({ evidence }: { evidence: SourceEvidence[] }) {
+const KIND_ICON: Record<EntryKind, LucideIcon> = {
+  note: StickyNote,
+  email: Mail,
+  call: Phone,
+  task: SquareCheck,
+  event: CalendarDays,
+  expense: Receipt,
+  document: FileText,
+  field: Tag,
+  contact: User,
+};
+
+const chipClass =
+  "inline-flex max-w-full cursor-pointer items-center gap-1 rounded-full border bg-card px-2 py-0.5 text-xs text-muted-foreground outline-none transition-colors hover:border-foreground/30 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50";
+
+/**
+ * Where a statement came from. By default each source is a small chip: pointing at it shows the
+ * quoted passage, selecting it opens the source panel. With `quotes`, the passages are written out
+ * one under the other, for the places where reading them against each other is the point.
+ */
+export function SourceLinks({ evidence, quotes = false }: { evidence: SourceEvidence[]; quotes?: boolean }) {
   const { entries, open, year } = useContext(SourceContext);
   const seen = new Set<string>();
   const items = evidence.flatMap((item) => {
@@ -172,9 +207,42 @@ export function SourceLinks({ evidence }: { evidence: SourceEvidence[] }) {
     const key = `${ref} ${page ?? ""} ${item.quote}`;
     if (!entry || seen.has(key)) return [];
     seen.add(key);
-    return [{ item, key, label: sourceLabel(entry, page, year), quote: decodeEntities(item.quote).trim() }];
+    return [{ item, key, kind: entry.kind, label: sourceLabel(entry, page, year), quote: decodeEntities(item.quote).trim() }];
   });
   if (items.length === 0) return null;
+
+  if (!quotes) {
+    return (
+      <span className="flex flex-wrap items-center gap-1.5 pt-0.5">
+        {items.map(({ item, key, kind, label, quote }) => {
+          const missing = item.found === false;
+          const Icon = missing ? CircleAlert : KIND_ICON[kind];
+          const chip = (
+            <button
+              type="button"
+              aria-label={quote ? `Open ${label}: “${quote}”` : `Open ${label}`}
+              className={cn(chipClass, missing && "border-mild bg-mild-soft text-mild-ink hover:text-mild-ink")}
+              onClick={() => open(item)}
+            >
+              <Icon aria-hidden className="size-3 shrink-0" />
+              <span className="truncate">{label}</span>
+            </button>
+          );
+          if (!quote) return <span key={key}>{chip}</span>;
+          return (
+            <Tooltip key={key}>
+              <TooltipTrigger render={chip} />
+              <TooltipContent className="block max-w-sm px-3 py-2 leading-relaxed">
+                <Quote text={quote} lit />
+                {missing && <span className="mt-1 block">Not found word for word in the source.</span>}
+              </TooltipContent>
+            </Tooltip>
+          );
+        })}
+      </span>
+    );
+  }
+
   const quoted = items.filter((entry) => entry.quote !== "");
   const plain = items.filter((entry) => entry.quote === "");
 

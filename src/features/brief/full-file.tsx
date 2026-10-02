@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { StatusPill } from "@/components/status";
 import { Input } from "@/components/ui/input";
-import { shortDate, type CaseFile, type EntryKind } from "@/features/cases/schema";
+import { shortDate, type CaseFile, type Entry, type EntryKind } from "@/features/cases/schema";
 import { KIND_WORD } from "@/features/cases/words";
 import { cn } from "@/lib/utils";
 import { useSource } from "./source-panel";
@@ -19,8 +20,16 @@ const KINDS: { kind: EntryKind; label: string }[] = [
 
 const columns = "grid grid-cols-[6.5rem_minmax(0,1fr)] gap-x-4 md:grid-cols-[6.5rem_5.5rem_minmax(0,1fr)_minmax(0,14rem)]";
 
+/** A task's state beside its title: done is green, past its due date is red; other entries have none. */
+function TaskState({ entry, today }: { entry: Entry; today: string }) {
+  if (entry.kind !== "task") return null;
+  if (entry.facts.status === "complete") return <StatusPill tone="done">Done</StatusPill>;
+  if (entry.date !== "" && entry.date < today) return <StatusPill tone="urgent">Overdue</StatusPill>;
+  return null;
+}
+
 /** Every entry of the case, newest first: the whole file behind the brief, to filter, search and open. */
-export function FullFile({ file }: { file: CaseFile }) {
+export function FullFile({ file, today }: { file: CaseFile; today: string }) {
   const { openRef } = useSource();
   const [kind, setKind] = useState<EntryKind | null>(null);
   const [query, setQuery] = useState("");
@@ -126,9 +135,12 @@ export function FullFile({ file }: { file: CaseFile }) {
                     >
                       <span className="text-muted-foreground tabular-nums">{shortDate(entry.date, true)}</span>
                       <span className="hidden text-muted-foreground md:block">{KIND_WORD[entry.kind]}</span>
-                      <span className="truncate font-serif text-[15px] group-hover:underline group-hover:decoration-input group-hover:underline-offset-2">
-                        <span className="mr-2 font-sans text-sm text-muted-foreground md:hidden">{KIND_WORD[entry.kind]}</span>
-                        {entry.title || "Untitled"}
+                      <span className="flex min-w-0 items-baseline gap-2">
+                        <span className="truncate font-serif text-[15px] group-hover:underline group-hover:decoration-input group-hover:underline-offset-2">
+                          <span className="mr-2 font-sans text-sm text-muted-foreground md:hidden">{KIND_WORD[entry.kind]}</span>
+                          {entry.title || "Untitled"}
+                        </span>
+                        <TaskState entry={entry} today={today} />
                       </span>
                       <span className="hidden truncate text-muted-foreground md:block">{entry.people.join(", ")}</span>
                     </button>

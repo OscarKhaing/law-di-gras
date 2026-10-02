@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { StatusPill } from "@/components/status";
 import { buttonVariants } from "@/components/ui/button";
 import { byRef, parseSource, shortDate, type CaseFile, type Entry } from "@/features/cases/schema";
 import type { ShareStatus } from "@/features/shares/schema";
@@ -146,9 +147,12 @@ function ProviderRow({
         </Line>
         <Line label="Shared update">
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4">
-            <p className={cn("max-w-prose leading-relaxed", mine.length === 0 && "text-muted-foreground")}>
-              {shareLine(mine[0], today)}
-            </p>
+            <div className="space-y-1">
+              <ShareStatusPill share={mine[0]} today={today} />
+              <p className={cn("max-w-prose leading-relaxed", mine.length === 0 && "text-muted-foreground")}>
+                {shareLine(mine[0], today)}
+              </p>
+            </div>
             {entry ? (
               <Link
                 href={`/cases/${file.matterId}/providers/${ref}`}
@@ -218,7 +222,7 @@ function Line({ label, children }: { label: string; children: ReactNode }) {
 /** Something the firm is still waiting for, marked because a person has to chase it. */
 function Owed({ children }: { children: ReactNode }) {
   return (
-    <p className="max-w-prose border-l-2 border-marker bg-marker-soft px-2.5 py-1 text-sm leading-relaxed">{children}</p>
+    <p className="max-w-prose border-l-2 border-mild bg-mild-soft px-2.5 py-1 text-sm leading-relaxed">{children}</p>
   );
 }
 
@@ -279,6 +283,13 @@ function dayAt(timestamp: string, today: string) {
   const day = timestamp.slice(0, 10);
   if (day >= today) return "today";
   return shortDate(day, day.slice(0, 4) !== today.slice(0, 4));
+}
+
+/** Where the latest update stands, at a glance: opened is green, waiting to be opened is yellow. */
+function ShareStatusPill({ share, today }: { share: ShareStatus | undefined; today: string }) {
+  if (!share) return <StatusPill tone="neutral">Not shared</StatusPill>;
+  if (share.revoked || share.expiresAt.slice(0, 10) < today) return <StatusPill tone="neutral">Link closed</StatusPill>;
+  return share.opens > 0 ? <StatusPill tone="done">Opened</StatusPill> : <StatusPill tone="mild">Not opened yet</StatusPill>;
 }
 
 /** One sentence on the latest update shared with a provider. */
