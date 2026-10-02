@@ -4,13 +4,25 @@ Built for the Swans Applied AI Hackathon at Law-Di-Gras, 2026-10-02.
 
 Case Desk reads one personal injury matter live from Clio Manage and turns it into two things:
 
-- **A brief for the firm.** One page that says where the case stands, what it is worth against the
-  coverage behind it, the ten moments that matter, what is overdue or waiting on someone else, and
-  what could hurt the case. Every line opens the note, email, call, task or page of a document it
-  came from.
+- **A brief for the firm.** A case opens on an overview that reads in about ninety seconds: what is
+  pressing, where the case stands, what is new since you last looked, what it is worth against the
+  coverage behind it, and the ten moments that matter. The rest of the case is one click away in a
+  menu beside it: what to do, the money, the timeline, the medical picture, the red flags and the
+  full file. Every line opens the note, email, call, task or page of a document it came from.
+- **Work, not only reading.**
+  - *Who to chase.* Everyone the firm is waiting on, the one left longest first, with a follow-up
+    drafted from that thread alone, to edit and copy. Nothing is sent.
+  - *Settlement breakdown.* Try a figure and see the fee, costs, liens and what is left for the
+    client, against the coverage limit. Pure arithmetic on the figures in the file.
+  - *Bills by provider,* summed from Clio and checked against the specials figure.
+  - *Treatment on record.* Every dated visit per provider on one strip, with the stretches the firm
+    holds no records for.
+  - *Worklists.* The sidebar says which cases have overdue tasks, are waiting on a provider or the
+    other side, are near their policy limits, or have a limitation date coming.
+  - *Reading as* attorney or case manager reorders the case; a handoff sheet prints it on a page.
 - **An update for a treating provider.** The attorney checks a drafted update line by line, decides
   what leaves the firm, and publishes it to a private link. The firm sees when the provider's office
-  opened it, and the provider can answer what the firm asked for.
+  opened it, and the provider can answer what the firm asked for and attach the records.
 
 Clio is only read. Nothing is ever written to it.
 
@@ -48,7 +60,10 @@ case file  ---------->  page index of every document   (claude-haiku-4-5, once p
 5. **Computed in code, not by a model:** what is overdue and coming up, the last time anyone spoke to
    the client, what the firm has spent, what is new since the reader last opened the case, and the
    cost of reading the case.
-6. **Share with a provider.** The drafting model sees an allowlist built in code: that provider's own
+6. **Work from it.** The chase list drafts a follow-up with `claude-sonnet-5-5` from the one thread
+   it concerns. The settlement breakdown, bills by provider, treatment on record and the sidebar's
+   worklists are computed in code from the stored case file, brief and page index.
+7. **Share with a provider.** The drafting model sees an allowlist built in code: that provider's own
    tasks, messages and appointments, the stage of the case, and what the firm holds from them. It
    never sees internal notes, custom fields, valuation or the brief's red flags. Publishing stores
    only the lines the attorney switched on. The provider's page (`/p/<token>`) looks the update up by
@@ -133,6 +148,11 @@ Quote highlighting in documents relies on desktop Chrome's built-in PDF viewer.
   to be opened by someone outside the firm.
 - **Quotes from scanned pages are checked against the page index,** not against the image, because a
   scan has no text to compare with. The page opens at the right place but the passage is not marked.
-- A provider's reply is stored in our database and shown to the firm. It is not written back to Clio,
-  by the rules of the hackathon.
+- A provider's reply, and any file they attach, is stored in our database and storage and shown to
+  the firm. It is not written back to Clio, by the rules of the hackathon.
+- "Reading as" attorney or case manager changes the order of a case's parts, not what anyone may
+  see. The one enforced boundary is between the firm and a provider.
+- The settlement breakdown is an illustration: the fee percentage is typed by the attorney because
+  the file holds no fee agreement, and provider charges are what was billed, not balances owed.
+- A drafted follow-up is copied by the user into their own email; the app sends nothing.
 - The provider is not notified when an update changes; they see it the next time they open the link.
