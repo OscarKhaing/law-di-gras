@@ -294,7 +294,16 @@ export function ReadCase({ matterId, situation }: { matterId: number; situation:
           : "The case has been read from Clio. What is left is reading its documents page by page and writing the brief."}
       </p>
       {progress.phase === "idle" && (
-        <Button className="mt-4" size="lg" onClick={() => run()} disabled={busy}>
+        <Button
+          className="mt-4"
+          size="lg"
+          disabled={busy}
+          onClick={() => {
+            // A fresh read takes minutes and is paid for again, so it asks before starting.
+            if (matterId < 0 && !window.confirm("Read this case from nothing now? It takes several minutes.")) return;
+            run();
+          }}
+        >
           {situation === "unread" ? "Read this case" : "Finish reading this case"}
         </Button>
       )}
@@ -345,6 +354,25 @@ export function FreshRead({ matterId, read }: { matterId: number; read: boolean 
         </p>
       )}
     </div>
+  );
+}
+
+/**
+ * The way from a case to its fresh read. It leaves the brief, so it asks first: a slip of the hand
+ * in front of an audience should not take the case off the screen.
+ */
+export function FreshReadLink({ matterId }: { matterId: number }) {
+  const router = useRouter();
+  const open = () => {
+    const sure = window.confirm(
+      "Leave this brief and open a fresh read of the case?\n\nA fresh read is a separate copy that is read from Clio from nothing, which takes several minutes. This brief is kept and nothing is deleted.",
+    );
+    if (sure) router.push(`/cases/${-Math.abs(matterId)}`);
+  };
+  return (
+    <button type="button" onClick={open} className="cursor-pointer text-xs underline underline-offset-2 hover:text-foreground">
+      Read it again from nothing
+    </button>
   );
 }
 
