@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CheckIcon, LoaderCircleIcon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -26,9 +27,12 @@ type Progress = {
   entries: number | null;
   documents: { total: number; done: number; reading: string[]; unread: { title: string; message: string }[] } | null;
   error: string | null;
+  /** How many seconds each finished step took. */
+  took: Partial<Record<1 | 2 | 3, number>>;
 };
 
-const IDLE: Progress = { phase: "idle", step: 1, startedAt: 0, entries: null, documents: null, error: null };
+const IDLE: Progress = { phase: "idle", step: 1, startedAt: 0, entries: null, documents: null, error: null, took: {} };
+const since = (startedAt: number) => Math.max(0, Math.round((Date.now() - startedAt) / 1000));
 const messageOf = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
 function clock(seconds: number) {
@@ -60,7 +64,9 @@ function Steps({ progress }: { progress: Progress }) {
     if (step > progress.step) return "waiting";
     return progress.phase === "failed" ? "failed" : "running";
   };
-  const timer = (step: 1 | 2 | 3) => (status(step) === "running" ? clock(elapsed) : "");
+  const timer = (step: 1 | 2 | 3) =>
+    status(step) === "running" ? clock(elapsed) : progress.took[step] !== undefined ? clock(progress.took[step]) : "";
+  const total = Object.values(progress.took).reduce((sum, seconds) => sum + seconds, 0);
   const documents = progress.documents;
   const rows: { step: 1 | 2 | 3; title: string; detail: string }[] = [
     {
@@ -106,6 +112,13 @@ function Steps({ progress }: { progress: Progress }) {
             ))}
         </li>
       ))}
+      {progress.phase === "done" && (
+        <li className="grid grid-cols-[1.25rem_minmax(0,1fr)_auto] items-baseline gap-x-3 py-2 font-medium">
+          <span />
+          <span>Read from start to finish</span>
+          <span className="text-xs tabular-nums">{clock(total)}</span>
+        </li>
+      )}
     </ol>
   );
 }
@@ -129,6 +142,7 @@ function useReading(matterId: number) {
         setProgress((now) => ({
           ...now,
           step: 2,
+          took: { ...now.took, 1: since(now.startedAt) },
           startedAt: Date.now(),
           entries: synced.entries,
           documents: { total: pending.length, done: 0, reading: [], unread: [] },
@@ -168,9 +182,16 @@ function useReading(matterId: number) {
       }
 
       step = 3;
-      setProgress((now) => ({ ...now, phase: "running", step: 3, startedAt: Date.now(), error: null }));
+      setProgress((now) => ({
+        ...now,
+        phase: "running",
+        step: 3,
+        took: now.step === 2 && now.phase === "running" ? { ...now.took, 2: since(now.startedAt) } : now.took,
+        startedAt: Date.now(),
+        error: null,
+      }));
       await postJson("/api/brief/build", { matterId });
-      setProgress((now) => ({ ...now, phase: "done" }));
+      setProgress((now) => ({ ...now, phase: "done", took: { ...now.took, 3: since(now.startedAt) } }));
       startRefresh(() => router.refresh());
     } catch (err) {
       setProgress((now) => ({ ...now, phase: "failed", step, error: messageOf(err) }));
@@ -269,7 +290,7 @@ export function ReadCase({ matterId, situation }: { matterId: number; situation:
       </h2>
       <p className="mt-1 max-w-prose text-sm text-muted-foreground">
         {situation === "unread"
-          ? `Reading matter ${matterId} copies its file from Clio, reads each document page by page and writes the brief. Nothing in Clio is changed.`
+          ? `Reading matter ${Math.abs(matterId)} copies its file from Clio, reads each document page by page and writes the brief. Nothing in Clio is changed.`
           : "The case has been read from Clio. What is left is reading its documents page by page and writing the brief."}
       </p>
       {progress.phase === "idle" && (
@@ -278,6 +299,51 @@ export function ReadCase({ matterId, situation }: { matterId: number; situation:
         </Button>
       )}
       {body}
+    </div>
+  );
+}
+
+/**
+ * The line above a fresh read of a case: a separate copy, read from nothing, for showing how long
+ * the whole reading takes. "Start over" clears that copy only; the case itself is never touched.
+ */
+export function FreshRead({ matterId, read }: { matterId: number; read: boolean }) {
+  const router = useRouter();
+  const [state, setState] = useState<{ status: "idle" | "clearing" } | { status: "failed"; message: string }>({ status: "idle" });
+  const [refreshing, startRefresh] = useTransition();
+  const clearing = state.status === "clearing" || refreshing;
+
+  const startOver = async () => {
+    if (!window.confirm("Clear this fresh read and start from nothing? The case itself is not touched.")) return;
+    setState({ status: "clearing" });
+    try {
+      await postJson("/api/cases/reset", { matterId });
+      setState({ status: "idle" });
+      startRefresh(() => router.refresh());
+    } catch (err) {
+      setState({ status: "failed", message: messageOf(err) });
+    }
+  };
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-y py-2.5 text-sm">
+      <p className="text-muted-foreground">
+        A fresh read: a separate copy of this matter, read from Clio from nothing.{" "}
+        <Link href={`/cases/${Math.abs(matterId)}`} className="text-foreground underline underline-offset-2">
+          Open the case itself
+        </Link>
+      </p>
+      {read && (
+        <Button variant="outline" size="sm" onClick={startOver} disabled={clearing}>
+          {clearing && <LoaderCircleIcon className="animate-spin" />}
+          {clearing ? "Clearing" : "Start over"}
+        </Button>
+      )}
+      {state.status === "failed" && (
+        <p className="w-full text-xs text-destructive" role="alert">
+          The fresh read could not be cleared: {state.message}
+        </p>
+      )}
     </div>
   );
 }

@@ -1,9 +1,10 @@
 import { z } from "zod";
 import { recordVisit } from "@/features/cases/server";
 import { errorResponse, parseJson } from "@/server/http";
+import { MatterKey } from "@/features/cases/schema";
 
 const Body = z.object({
-  matterId: z.number().int().positive(),
+  matterId: MatterKey,
   viewer: z.string().regex(/^[A-Za-z0-9_-]{8,64}$/),
 });
 

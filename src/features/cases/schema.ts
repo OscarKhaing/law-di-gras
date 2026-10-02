@@ -61,6 +61,16 @@ export type CaseFile = {
   fingerprint: string;
 };
 
+/**
+ * A case is kept under its Clio matter id. The same number negated names a second, separate copy of
+ * that matter, a "fresh read": its own case file, page index, brief and document copies, so the
+ * whole reading can be run again from nothing without touching the case the firm is working from.
+ */
+export const MatterKey = z.number().int().refine((key) => key !== 0, "Not a case.");
+export const isFreshRead = (matterKey: number) => matterKey < 0;
+/** The matter in Clio that a case, or its fresh read, is a copy of. */
+export const clioMatterId = (matterKey: number) => Math.abs(matterKey);
+
 /** A row of the case list. `syncedAt` is null for a matter in Clio that has not been read yet. */
 export type CaseSummary = {
   matterId: number;

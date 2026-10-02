@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { clioDownload, clioGet, clioGetOne, isConnected } from "@/server/clio";
 import { supabase } from "@/server/supabase";
-import type { CaseFile, CaseSummary, Entry, EntryKind } from "./schema";
+import { clioMatterId, isFreshRead, type CaseFile, type CaseSummary, type Entry, type EntryKind } from "./schema";
 
 // Reading cases. `syncCase` reads a matter from Clio and keeps it in the `case_files` table as one
 // CaseFile; the screens read that, so opening a case never calls Clio.
@@ -211,6 +211,7 @@ export async function listCases(): Promise<CaseSummary[]> {
   const { data, error } = await supabase()
     .from("case_files")
     .select("file, synced_at")
+    .gt("matter_id", 0) // a fresh read of a case is not another case
     .order("synced_at", { ascending: false });
   if (error) throw error;
   return (data ?? []).map((row) => {
@@ -251,12 +252,17 @@ export async function recordVisit(matterId: number, viewer: string): Promise<str
   return (data?.opened_at as string | undefined) ?? null;
 }
 
+/** Where a case's document copies are kept in the bucket; a fresh read has a folder of its own. */
+const folderOf = (matterKey: number) => `clio/${isFreshRead(matterKey) ? "fresh-" : ""}${clioMatterId(matterKey)}`;
+/** The version a document's page index is stored under; a fresh read's index is kept apart from the case's. */
+const versionOf = (matterKey: number, versionId: number) => (isFreshRead(matterKey) ? `fresh-${versionId}` : versionId);
+
 /** Copy a document from Clio into our Storage bucket once per version, and return where it is. */
-async function storeDocument(matterId: number, doc: ClioDocument, present: Set<string>) {
+async function storeDocument(matterKey: number, doc: ClioDocument, present: Set<string>) {
   const versionId = doc.latest_document_version?.id ?? 0;
   const extension = (doc.name.match(/\.([A-Za-z0-9]{1,5})$/)?.[1] ?? "pdf").toLowerCase();
   const name = `${doc.id}-${versionId}.${extension}`;
-  const path = `clio/${matterId}/${name}`;
+  const path = `${folderOf(matterKey)}/${name}`;
   if (!present.has(name)) {
     const bytes = await clioDownload(String(doc.id));
     const contentType = doc.latest_document_version?.content_type ?? doc.content_type ?? "application/octet-stream";
@@ -270,7 +276,9 @@ async function storeDocument(matterId: number, doc: ClioDocument, present: Set<s
  * Read every part of a matter from Clio (about a dozen requests, plus one per document not copied
  * yet), turn it into one CaseFile and store it. Safe to repeat: refs are kept from the last read.
  */
-export async function syncCase(matterId: number): Promise<CaseFile> {
+export async function syncCase(matterKey: number): Promise<CaseFile> {
+  // `matterKey` is where the case is kept; `matterId` is the matter in Clio it is read from.
+  const matterId = clioMatterId(matterKey);
   const matter = await clioGetOne<ClioMatter>(`/matters/${matterId}.json`, { fields: FIELDS.matter });
   const scope = { matter_id: matterId, order: "id(asc)" };
   const [contacts, notes, communications, tasks, events, activities, documents, stages, user, previous, stored] =
@@ -291,8 +299,8 @@ export async function syncCase(matterId: number): Promise<CaseFile> {
       clioGetOne<{ name: string; email: string; account: { name: string } | null }>("/users/who_am_i.json", {
         fields: FIELDS.user,
       }),
-      getCaseFile(matterId),
-      supabase().storage.from(BUCKET).list(`clio/${matterId}`, { limit: 1000 }),
+      getCaseFile(matterKey),
+      supabase().storage.from(BUCKET).list(folderOf(matterKey), { limit: 1000 }),
     ]);
   if (stored.error) throw stored.error;
   const present = new Set((stored.data ?? []).map((object) => object.name));
@@ -425,8 +433,8 @@ export async function syncCase(matterId: number): Promise<CaseFile> {
         folder: doc.parent?.name ?? "",
         bytes: doc.latest_document_version?.size ?? 0,
         contentType: doc.latest_document_version?.content_type ?? doc.content_type ?? "",
-        versionId: doc.latest_document_version?.id ?? 0,
-        storagePath: await storeDocument(matterId, doc, present),
+        versionId: versionOf(matterKey, doc.latest_document_version?.id ?? 0),
+        storagePath: await storeDocument(matterKey, doc, present),
       },
     });
   }
@@ -439,7 +447,7 @@ export async function syncCase(matterId: number): Promise<CaseFile> {
     .slice(0, 32);
 
   const file: CaseFile = {
-    matterId,
+    matterId: matterKey,
     number: matter.display_number,
     description: matter.description ?? "",
     status: matter.status,
@@ -457,7 +465,7 @@ export async function syncCase(matterId: number): Promise<CaseFile> {
 
   const { error } = await supabase()
     .from("case_files")
-    .upsert({ matter_id: matterId, file, fingerprint, synced_at: file.syncedAt });
+    .upsert({ matter_id: matterKey, file, fingerprint, synced_at: file.syncedAt });
   if (error) throw error;
   return file;
 }
@@ -477,4 +485,43 @@ export async function documentStatus(file: CaseFile): Promise<{ ref: string; tit
     title: entry.title,
     indexed: indexed.has(`${entry.clioId}:${entry.facts.versionId}`),
   }));
+}
+
+/** Every object under a folder of the bucket, however deep. */
+async function objectsUnder(folder: string): Promise<string[]> {
+  const { data, error } = await supabase().storage.from(BUCKET).list(folder, { limit: 1000 });
+  if (error) throw error;
+  const paths: string[] = [];
+  for (const object of data ?? []) {
+    const path = `${folder}/${object.name}`;
+    // A folder comes back without an id.
+    if (object.id === null) paths.push(...(await objectsUnder(path)));
+    else paths.push(path);
+  }
+  return paths;
+}
+
+/**
+ * Clear a fresh read, so the case can be read from nothing again: its case file, its brief, its page
+ * index and its document copies. Only a fresh read can be cleared; the case itself is never touched,
+ * and nothing is ever removed from Clio.
+ */
+export async function clearFreshRead(matterKey: number) {
+  if (!isFreshRead(matterKey)) throw new Error("Only a fresh read can be started over.");
+  const db = supabase();
+  const file = await getCaseFile(matterKey);
+  const documentIds = (file?.entries ?? []).filter((entry) => entry.kind === "document").map((entry) => Number(entry.clioId));
+  if (documentIds.length > 0) {
+    const { error } = await db.from("document_digests").delete().in("document_id", documentIds).like("version", "fresh-%");
+    if (error) throw error;
+  }
+  for (const table of ["briefs", "visits", "case_files"]) {
+    const { error } = await db.from(table).delete().eq("matter_id", matterKey);
+    if (error) throw error;
+  }
+  const objects = await objectsUnder(folderOf(matterKey));
+  for (let start = 0; start < objects.length; start += 100) {
+    const { error } = await db.storage.from(BUCKET).remove(objects.slice(start, start + 100));
+    if (error) throw error;
+  }
 }

@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BriefView } from "@/features/brief/brief-view";
-import { ReadCase } from "@/features/brief/read-case";
+import { FreshRead, ReadCase } from "@/features/brief/read-case";
 import { getBrief } from "@/features/brief/server";
+import { clioMatterId, isFreshRead } from "@/features/cases/schema";
 import { getCaseFile } from "@/features/cases/server";
 import { clientPhotoUrl, indexUsage } from "@/features/documents/server";
 import { sharesFor } from "@/features/shares/server";
@@ -25,7 +26,8 @@ async function load(matterId: number) {
   const [file, stored, shares, photoUrl, index] = await Promise.all([
     getCaseFile(matterId),
     getBrief(matterId),
-    optional("shared updates", sharesFor(matterId), []),
+    // Updates are shared from the case itself, so a fresh read shows the same ones.
+    optional("shared updates", sharesFor(clioMatterId(matterId)), []),
     optional("client photo", clientPhotoUrl(matterId), null),
     optional("document reading cost", indexUsage(matterId), null),
   ]);
@@ -37,7 +39,8 @@ async function load(matterId: number) {
 export default async function CasePage({ params }: PageProps<"/cases/[id]">) {
   const { id } = await params;
   const matterId = Number(id);
-  if (!Number.isInteger(matterId) || matterId <= 0) notFound();
+  // A negative id is a fresh read of that matter: a separate copy, read from nothing.
+  if (!Number.isInteger(matterId) || matterId === 0) notFound();
 
   let loaded: Awaited<ReturnType<typeof load>> | null = null;
   let failure = "";
@@ -56,8 +59,9 @@ export default async function CasePage({ params }: PageProps<"/cases/[id]">) {
           Cases
         </Link>
         <span className="mx-1.5">/</span>
-        <span className="text-foreground">{loaded?.file?.client.name || `Matter ${matterId}`}</span>
+        <span className="text-foreground">{loaded?.file?.client.name || `Matter ${clioMatterId(matterId)}`}</span>
       </nav>
+      {isFreshRead(matterId) && <FreshRead matterId={matterId} read={Boolean(loaded?.file)} />}
       {!loaded ? (
         <div role="alert" className="max-w-prose border-l-2 border-destructive pl-3 text-sm">
           <p className="font-medium text-destructive">This case could not be opened</p>

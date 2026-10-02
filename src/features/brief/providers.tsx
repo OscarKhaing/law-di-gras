@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
-import { byRef, parseSource, shortDate, type CaseFile, type Entry } from "@/features/cases/schema";
+import { byRef, parseSource, shortDate, type CaseFile, type Entry, clioMatterId } from "@/features/cases/schema";
 import type { ShareStatus } from "@/features/shares/schema";
 import { cn } from "@/lib/utils";
 import { Disclosure, useFold } from "./fold";
@@ -146,7 +146,7 @@ function ProviderRow({
       <div className="flex flex-col items-start gap-1 lg:items-end lg:text-right">
         {entry ? (
           <Link
-            href={`/cases/${file.matterId}/providers/${ref}`}
+            href={`/cases/${clioMatterId(file.matterId)}/providers/${ref}`}
             className={buttonVariants({ size: "sm", variant: person.owes ? "default" : "outline" })}
           >
             Prepare update

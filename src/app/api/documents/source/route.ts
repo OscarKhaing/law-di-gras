@@ -1,12 +1,13 @@
 import { z } from "zod";
 import { documentSource } from "@/features/documents/server";
 import { errorResponse, parseJson } from "@/server/http";
+import { MatterKey } from "@/features/cases/schema";
 
 // The first time a long document is opened it is cut into parts, which takes longer than a lookup.
 export const maxDuration = 300;
 
 const Body = z.object({
-  matterId: z.number().int().positive(),
+  matterId: MatterKey,
   ref: z.string().regex(/^D\d+$/),
   page: z.number().int().positive(),
 });

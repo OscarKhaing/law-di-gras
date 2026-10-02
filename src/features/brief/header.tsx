@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import type { CaseFile } from "@/features/cases/schema";
+import Link from "next/link";
+import { isFreshRead, type CaseFile } from "@/features/cases/schema";
 import { LocalTime } from "@/features/cases/local-time";
 import { StageTrack } from "@/features/cases/stage-track";
 import { CheckClio } from "./read-case";
@@ -61,6 +62,11 @@ export function CaseHeader({
             Read from Clio <LocalTime iso={file.syncedAt} />
           </p>
           <CheckClio matterId={file.matterId} fingerprint={file.fingerprint} />
+          {!isFreshRead(file.matterId) && (
+            <Link href={`/cases/${-file.matterId}`} className="text-xs underline underline-offset-2 hover:text-foreground">
+              Read it again from nothing
+            </Link>
+          )}
         </div>
       </div>
       <StageTrack stage={file.stage} stages={file.stages} named />

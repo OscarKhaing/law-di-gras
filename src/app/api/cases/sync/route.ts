@@ -1,10 +1,11 @@
 import { z } from "zod";
 import { documentStatus, syncCase } from "@/features/cases/server";
 import { errorResponse, parseJson } from "@/server/http";
+import { MatterKey } from "@/features/cases/schema";
 
 export const maxDuration = 300;
 
-const Body = z.object({ matterId: z.number().int().positive() });
+const Body = z.object({ matterId: MatterKey });
 
 /** Read a matter from Clio into Case Desk. */
 export async function POST(request: Request) {
