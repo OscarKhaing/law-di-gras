@@ -1,0 +1,146 @@
+// A case as read from Clio. Browser-safe: types and small pure functions only.
+// This is the contract between the three lanes; change it only with the others' agreement.
+
+import { z } from "zod";
+
+export type EntryKind = "note" | "email" | "call" | "task" | "event" | "expense" | "document" | "field" | "contact";
+
+/**
+ * One thing in the file: a note, an email, a task, a document, a custom field, a person.
+ * Every kind has the same shape, so the screens, the prompts and the source panel treat them alike.
+ */
+export type Entry = {
+  /** Short stable name the model cites and the screens open: N12, M45, T3, E7, X2, D9, F4, P3. */
+  ref: string;
+  kind: EntryKind;
+  clioId: string;
+  etag: string;
+  /** The day the entry is about (note date, sent date, due date, start, received), YYYY-MM-DD; "" if none. */
+  date: string;
+  /** Subject, task name, event summary, field name, file name, or a person's name. */
+  title: string;
+  /** Body, detail, description, field value. For a contact: their role on the case. */
+  text: string;
+  /** Names involved: author, sender, receivers, assignee, attendees. */
+  people: string[];
+  /**
+   * Kind-specific details. Known keys:
+   * task: status ("pending" | "complete" ...), priority, completedAt
+   * event: startAt, endAt, location
+   * expense: amount
+   * email, call: from, to (names, comma separated)
+   * document: folder, pages, bytes, versionId, storagePath, contentType
+   * field: fieldType
+   * contact: role, isClient, isCompany, email, phone
+   */
+  facts: Record<string, string | number | boolean>;
+  /** Clio's own timestamps, used for "since you last opened". */
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CaseFile = {
+  matterId: number;
+  /** Clio's display number, e.g. "00001-Name". */
+  number: string;
+  description: string;
+  status: string;
+  /** The current stage and, in order, every stage Clio has for this practice area. */
+  stage: string;
+  stages: string[];
+  practiceArea: string;
+  openDate: string;
+  limitationDate: string;
+  client: { ref: string; name: string };
+  entries: Entry[];
+  syncedAt: string;
+  /** Changes whenever anything in Clio changes; a brief is cached against it. */
+  fingerprint: string;
+};
+
+/** A row of the case list. */
+export type CaseSummary = {
+  matterId: number;
+  number: string;
+  client: string;
+  description: string;
+  stage: string;
+  stages: string[];
+  syncedAt: string;
+};
+
+/**
+ * Where a statement comes from. `source` is a ref ("N12") or a ref and page ("D9 p.212");
+ * `quote` is copied exactly from that source, or empty.
+ */
+export const Evidence = z.array(
+  z.object({
+    source: z.string().describe('The ref of one entry, e.g. "N12" or "M45"; for a page of a document, "D9 p.212"'),
+    quote: z.string().describe("Up to 25 words copied exactly from that source; empty string when nothing short supports it"),
+  }),
+);
+export type Evidence = z.infer<typeof Evidence>;
+
+/** Splits "D9 p.212" into { ref: "D9", page: 212 }; a plain ref has page null. */
+export function parseSource(source: string): { ref: string; page: number | null } {
+  const match = source.trim().match(/^([A-Z]+\d+)(?:\s*(?:p\.?|@)\s*(\d+))?/i);
+  if (!match) return { ref: source.trim(), page: null };
+  return { ref: match[1].toUpperCase(), page: match[2] ? Number(match[2]) : null };
+}
+
+export function byRef(file: CaseFile): Map<string, Entry> {
+  return new Map(file.entries.map((entry) => [entry.ref, entry]));
+}
+
+const isOpenTask = (entry: Entry) => entry.kind === "task" && entry.facts.status !== "complete";
+
+/** Open tasks whose due date has passed, oldest first. `today` is YYYY-MM-DD. */
+export function overdue(file: CaseFile, today: string): Entry[] {
+  return file.entries
+    .filter((entry) => isOpenTask(entry) && entry.date !== "" && entry.date < today)
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/** Open tasks and calendar entries from today up to `until` (YYYY-MM-DD), soonest first. */
+export function upcoming(file: CaseFile, today: string, until: string): Entry[] {
+  return file.entries
+    .filter((entry) => (isOpenTask(entry) || entry.kind === "event") && entry.date >= today && entry.date <= until)
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/** The last time anyone actually spoke to the client: the latest phone call the client took part in. */
+export function lastClientContact(file: CaseFile): Entry | null {
+  const calls = file.entries
+    .filter((entry) => entry.kind === "call" && entry.people.includes(file.client.name))
+    .sort((a, b) => b.date.localeCompare(a.date));
+  return calls[0] ?? null;
+}
+
+/** What the firm has paid out on the case: the sum of its expense entries. */
+export function firmSpend(file: CaseFile): number {
+  return file.entries
+    .filter((entry) => entry.kind === "expense")
+    .reduce((sum, entry) => sum + (Number(entry.facts.amount) || 0), 0);
+}
+
+/**
+ * Entries that are new since `cutoff` (an ISO timestamp or a date): dated after it, or created in
+ * Clio after it. Fields and contacts are left out; they are not events. Newest first.
+ */
+export function changedSince(file: CaseFile, cutoff: string): Entry[] {
+  const day = cutoff.slice(0, 10);
+  return file.entries
+    .filter((entry) => entry.kind !== "field" && entry.kind !== "contact")
+    .filter((entry) => (entry.date !== "" && entry.date > day) || entry.createdAt > cutoff)
+    .sort((a, b) => (b.date || b.createdAt).localeCompare(a.date || a.createdAt));
+}
+
+const dayMonth = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+const dayMonthYear = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+
+/** "2026-09-29" as "Sep 29", or "Sep 29, 2026" with `year`. An empty or unreadable date gives "". */
+export function shortDate(isoDate: string, year = false) {
+  const date = new Date(`${isoDate.slice(0, 10)}T00:00:00Z`);
+  if (!isoDate || Number.isNaN(date.getTime())) return "";
+  return (year ? dayMonthYear : dayMonth).format(date);
+}

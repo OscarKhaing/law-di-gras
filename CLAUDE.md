@@ -1,38 +1,102 @@
 @AGENTS.md
 
-# Case Desk — hackathon starter
+# Case Desk — Swans Applied AI Hackathon, 2026-10-02
 
-Starter for the Swans Applied AI Hackathon (Law-Di-Gras, 2026-10-02). The challenge is one operational
-problem from a personal injury (PI) law firm, announced at kickoff. Coding time is 9:00–12:00 and
-1:00–4:00, so optimise for a working, convincing demo over architecture. No auth, no tests, no
-abstractions that aren't needed today.
+**Hard stop 4:00 PM. Feature freeze 3:00 PM.** Optimise for a working, convincing demo over
+architecture. No tests, no abstractions that aren't needed today.
 
-## At kickoff
+## The challenge
 
-1. Put the hosts' brief and sample files in `challenge/`. That folder is git-ignored; keep the files
-   out of `public/`, which anyone can read, unless the hosts say they are safe to publish.
-2. Read everything in `challenge/` and answer, before writing code:
-   - Who does this work today, and which step is slow or error-prone?
-   - Which one workflow will the demo show end to end, and on which sample documents?
-   - What must be extracted or decided, what does a person review, and what happens after approval?
-   - Does anything need to be saved? If so, which tables (see "Database" below)?
-   - What requirement did the brief leave unwritten (source links, audit trail, privacy)?
-3. Fill in "Project direction" below: the user, their pain, the outcome and the one workflow.
-4. Write the screen-by-screen brief described in "Designing a screen" and agree it before coding.
-5. Build in this order, checking each step on the real samples before the next:
-   1. Change `FIELDS` and the prompt, and run `pnpm -s script scripts/extract-file.ts challenge/<file>`
-      until the output is right. This loop needs no browser.
-   2. Adapt the review screen's wording, then whatever happens after Approve.
-   3. Precompute the demo cases (see "The documents feature") so the demo never waits on the model.
+On one live Clio Manage matter (a personal injury case; the hosts' brief and files are in the
+git-ignored `challenge/` folder), build a dashboard that (1) gets a firm's own people up to speed on
+a case in about 90 seconds and (2) gives the treating medical providers visibility into where the
+case stands. The hosts want a visual digest of what is already in the file, not a chat box.
+
+Rules that decide whether we make the top seven (Swans reads the repo at 4:00):
+
+- **Read the case live from Clio.** The hosts' JSON in `challenge/` is their setup payload, not our input.
+- **Nothing hardcoded.** No name, date, amount or fact of the case may appear in `src/` or `scripts/`.
+  Every sentence on screen comes from Clio or from a model reading Clio, and says where it came from.
+- **Clio is read-only.** `src/server/clio.ts` exports GET helpers only. Our own data goes in Supabase.
+
+## What we are building
+
+One workflow, end to end: **open the case, read the brief, open any line's source, then send a
+treating provider an update the attorney has checked.**
+
+Readers: the attorney, the case manager, and the provider's billing or lien coordinator. The one
+permission boundary is firm to provider, enforced on the server: the provider's page can read
+nothing but the update published to its link.
+
+1. **Cases (`/`).** Cases read from Clio. A row opens the case. States: Clio not connected, none read
+   yet, error.
+2. **The brief (`/cases/[id]`),** read top to bottom: header (client, matter number, stage track from
+   Clio's stages, "Read from Clio at …", "Check Clio"); the bottom line in the serif face; "since you
+   last opened" as a marker strip (computed in code); at a glance; worth and coverage (bars on one
+   scale, the coverage limit as a marker line through them, the firm's own spend underneath); the ten
+   moments that matter on a time strip with a ledger below; needs attention (overdue and coming up
+   from tasks and calendar in code; waiting on others and to decide from the model); red flags;
+   injuries; treating providers (with "Prepare update" and whether a shared update was opened); the
+   full file (every entry, filter by kind, search); how this brief was made (models, cost, when).
+   Selecting any line opens the **source panel** on the right: the note, email, call, task or
+   calendar entry with the quoted passage marked, or the document at the cited page.
+3. **Provider update (`/cases/[id]/providers/[contact]`).** Left: drafted lines grouped by section,
+   each with a switch, editable wording and its source; lines that are the attorney's call start
+   switched off. Right: the provider's page exactly as it will look. Main action: "Publish and copy
+   link"; then the link, its expiry, opens and replies. Undo: "Withdraw link".
+4. **The provider's page (`/p/[token]`),** no sidebar, works on a phone: the case is active and at
+   which stage, what the firm needs from this office, the lines the attorney switched on, who to call.
+   The provider can reply to a request; the reply is stored in our database and shown to the firm as
+   "from the provider, not yet in Clio".
+
+How it works: `syncCase` reads a matter from Clio into one `CaseFile` (a flat list of entries, each
+with a short ref such as `N12`) stored in Supabase. Documents are copied to Storage and their pages
+indexed once by Haiku 4.5. `buildBrief` makes one structured call to Opus 5.5 over the entries and
+the page index; code then checks every ref and quote and stores the brief against the case file's
+fingerprint. Opening a case never calls Clio or a model. Dates, sums, overdue, last contact and
+"since you last opened" are computed in code, not by the model.
+
+## Who builds what
+
+Three people, each with a Claude session. **Stay inside your own paths.** Commit small, run
+`pnpm typecheck` and `git pull --rebase` before every push, `git add` your own paths (never `-A`),
+never force-push. Only lane 1 edits the shared files.
+
+| Lane | Owns | Delivers |
+|---|---|---|
+| 1. Pipeline (Oscar) | `src/server/clio.ts`, `src/features/cases/{schema,server}.ts`, `src/features/documents/`, `src/features/brief/{schema,prompt,server}.ts`, `src/app/api/{clio,cases,documents,brief}/`, `scripts/`, `supabase/schema.sql`, and the shared files: `CLAUDE.md`, `package.json`, `src/app/layout.tsx` | A real case file in Supabase, then the brief, then the page index |
+| 2. The brief page | `src/features/brief/*.tsx`, `src/features/cases/*.tsx`, `src/app/(firm)/` except `cases/[id]/providers/`, `src/components/`, `src/app/globals.css` | Screens 1 and 2 and the source panel |
+| 3. Provider side | `src/features/shares/`, `src/app/api/shares/`, `src/app/(firm)/cases/[id]/providers/`, `src/app/p/`, `README.md` | Screens 3 and 4, open tracking, replies, then the README |
+
+The contract between the lanes is three files; change one only after telling the others:
+`src/features/cases/schema.ts` (`CaseFile`, `Entry`, `Evidence`, and the helpers `overdue`,
+`upcoming`, `lastClientContact`, `firmSpend`, `changedSince`, `byRef`, `parseSource`),
+`src/features/brief/schema.ts` (`Brief`, `StoredBrief`) and `src/features/shares/schema.ts`
+(`UpdateDraft`, `ProviderUpdate`, `ShareStatus`). Screens read through `getCaseFile` and `listCases`
+(`cases/server.ts`), `getBrief` (`brief/server.ts`) and `sharesFor` (`shares/server.ts`).
+
+Only lane 1 calls Clio: it allows 50 requests a minute per token during the day. Everyone else reads
+the case file from Supabase. Until the first sync lands, build against the types.
+
+Checkpoints: **12:00** the brief page shows a real bottom line, money, needs attention and ten
+moments, and a line opens its source. **2:00** the whole workflow runs locally. **3:00** no new
+features. If behind at 2:00, cut provider replies, the client photo and full-file search first.
+
+Not building unless asked: sign-in for the firm side, email to providers, a body diagram, a role
+switch inside the firm.
 
 ## Hard rule: self-check before adding anything
 
-**Project direction:** _not set yet. At kickoff, replace this with four lines:_
+**Project direction:**
 
-- _Primary user: the specific role doing this work today._
-- _Pain point: the one repetitive or difficult task._
-- _Successful outcome: what they will have accomplished._
-- _Workflow: one sentence naming what the demo shows end to end._
+- Primary user: an attorney or case manager opening a case they have not seen, and the billing or
+  lien coordinator at a provider treating the client.
+- Pain point: the case system holds everything but nobody can absorb it; providers cannot see where
+  the case stands and fall back on email.
+- Successful outcome: the firm's reader knows where the case stands, what it is worth and what is
+  stuck within 90 seconds, with a source behind every line; the provider knows the case is alive and
+  what the firm needs from them.
+- Workflow: open the case, read the brief, open a line's source, publish a checked update to a provider.
 
 Before adding a feature, dependency, abstraction, guard, config option or extra endpoint, stop and
 answer these four questions:
@@ -121,40 +185,20 @@ Then have a teammate use it with no instructions. Wherever they hesitate is the 
 For components, look before building: `pnpm dlx shadcn@latest search @shadcn -q <word>` finds
 components and blocks, `docs <name>` links their documentation, and `add <name>` installs one.
 
-## Current state (evening of 2026-10-01)
+## Current state (10:15 on 2026-10-02, after step 0)
 
-What exists and works, locally and on production:
-
-- An app shell: sidebar, a case list on placeholder rows, a case page, and a playground page that
-  checks the model and database connections.
-- One feature, `documents`: upload a PDF, image or text file, extract a list of fields from it, and
-  review them next to the source. Details in "The documents feature".
-- A model wrapper that passes its checks on Haiku 4.5, Sonnet 5.5 and Opus 5.5.
-
-The one user workflow today, start to finish:
-
-1. Case list (`/`): three placeholder cases, each with its stage and status. A row opens the case.
-2. Case page (`/cases/<id>`): choose a file and press "Read document", or press "Open sample" for
-   the 12-page record that was read ahead of time by Sonnet 5.5.
-3. While it reads: the document shows on the left, and a timer and placeholder rows on the right.
-4. Review: the facts appear as a ledger. "To check" narrows it to the entries the model flagged.
-   Selecting a quote opens that page of the record with the passage highlighted. A value can be
-   edited (the original stays visible, with Restore) and a flagged entry marked as checked.
-5. Approve unlocks once nothing is left to check. Reject is always available; Reopen undoes either.
-6. A failure shows in place of the ledger and stays until the next attempt; pressing "Read document"
-   again retries without uploading the file a second time.
-
-Not built, in rough order of how likely tomorrow needs it:
-
-- Saving anything. There are no tables; Approve, Reject and edits live only in the browser tab.
-- Any step after approval (a task, a letter, an update to the case).
-- A link between a case and its documents. The review screen is the same on every case page, and
-  the case's own fields are placeholders.
-- More than one document at a time, or facts combined across documents.
-- Creating or editing a case.
-- Splitting records too long for one request, and files over 23 MB.
-- Cancelling a reading, and a warning before a review in progress is discarded.
-- Roles, sign-in and permissions.
+- The three contract files exist. `listCases`, `getCaseFile` and `getBrief` read from Supabase and
+  work once the tables are created; `syncCase`, `buildBrief` and `sharesFor` are stubs.
+- The firm's pages are under `src/app/(firm)/` with the sidebar; `/p/[token]` has none and shows
+  "This link is not active". The case list and case page render the case file's header only.
+- Not built yet: the Clio client and connection, the sync, the page index, the brief, every section
+  of the brief page, the source panel, and the whole provider side.
+- Left over from the starter, to delete at the 3:00 cleanup: the upload-and-review screen
+  (`document-review.tsx`, `review-panel.tsx`, the two `api/documents` routes, `public/demo/`,
+  `scripts/extract-file.ts`) and the playground. `source-viewer.tsx` and the `Quote` marker in
+  `review-panel.tsx` are reused: see "The documents feature" for how the page jump and highlight work.
+  The two long scans in this case have no text layer, so a citation into them jumps to the page
+  without a highlight.
 
 Services:
 
@@ -172,7 +216,9 @@ Local setup needs the same three variables in `.env.local` (see `.env.example`).
 ## Database
 
 - Supabase project `ocqpdippafieojisieln`, at https://ocqpdippafieojisieln.supabase.co.
-- It has no tables. It has one private Storage bucket, `documents`, for uploaded files.
+- Its tables are in `supabase/schema.sql`: `clio_connection`, `case_files`, `document_digests`,
+  `briefs`, `visits`, `shares`, `share_events`. Row-level security is on with no policies, so only
+  the secret key can read them. It has one private Storage bucket, `documents`.
 - Server code reaches it through `supabase()` in `src/server/supabase.ts`, which uses the secret key
   and so bypasses row-level security. Never use it in browser code.
 - To add tables: write the SQL, and have the user run it in the SQL editor at
@@ -200,8 +246,11 @@ Local setup needs the same three variables in `.env.local` (see `.env.example`).
 ```
 src/
   app/                  Routing only. Pages and API routes; no logic of their own.
-    page.tsx            Case list.          cases/[id]/page.tsx   Case page with document review.
-    playground/         Connection checks and a streaming prompt box.
+    layout.tsx          Fonts and providers only.
+    (firm)/             The firm's side, with the sidebar: page.tsx (case list),
+                        cases/[id]/page.tsx (the brief), cases/[id]/providers/[contact]/ (provider update),
+                        playground/ (connection checks).
+    p/[token]/          The provider's page. No sidebar; reads only the published update.
     api/<feature>/<action>/route.ts
     api/llm/stream/     Generic streaming prompt endpoint, used by the playground.
     api/health/         Smoke tests: model (/api/health) and Supabase (/api/health/db).
@@ -221,8 +270,8 @@ public/demo/            A sample record and its precomputed extraction, opened b
 challenge/              The hosts' brief and sample files (git-ignored; create it at kickoff).
 ```
 
-Features: `documents` (below) and `cases` (placeholder rows in `data.ts`; replace with real queries
-in a `server.ts`).
+Features: `cases` (the case file read from Clio), `documents` (the page index and the source
+viewer), `brief` (the model-written brief and its screen) and `shares` (provider updates).
 
 | To change… | Open |
 |---|---|
@@ -307,8 +356,9 @@ reader loop in `src/app/playground/page.tsx` is the worked example.
   schemas, types and small pure functions only.
 - `src/lib/` must stay safe to import in the browser: no secrets, no `process.env`, no Node APIs.
 - Imports: relative (`./schema`) inside a feature, `@/…` everywhere else. A feature imports from
-  `@/server`, `@/lib` and `@/components`; if two features need the same code, move it up into one of
-  those rather than importing across features.
+  `@/server`, `@/lib` and `@/components`. Today a feature may also import another feature's
+  `schema.ts` and the read functions of its `server.ts` (every feature builds on the case file), but
+  never its components or prompts.
 - Secrets are read from `process.env` only inside `src/server/`.
 - Any path or id that comes from a request and is passed to Supabase must be validated first, as
   `isDocumentPath` does. The Storage client builds its URL from the path as given, so `../` would

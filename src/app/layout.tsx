@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Sans, Source_Serif_4 } from "next/font/google";
-import { AppSidebar } from "@/components/app-sidebar";
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
@@ -19,9 +17,11 @@ const serif = Source_Serif_4({
 
 export const metadata: Metadata = {
   title: "Case Desk",
-  description: "AI operations tooling for personal injury firms",
+  description: "A personal injury case, digested: a brief for the firm and an update for the treating providers",
 };
 
+// Fonts and providers only. The firm's pages add the sidebar in (firm)/layout.tsx; the provider's
+// page under /p has none.
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
@@ -30,15 +30,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full">
         <TooltipProvider>
-          <SidebarProvider>
-            <AppSidebar />
-            <SidebarInset>
-              <header className="flex h-12 items-center gap-2 border-b px-4">
-                <SidebarTrigger />
-              </header>
-              <div className="w-full flex-1 p-6">{children}</div>
-            </SidebarInset>
-          </SidebarProvider>
+          {children}
           <Toaster />
         </TooltipProvider>
       </body>
