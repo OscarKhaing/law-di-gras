@@ -6,7 +6,8 @@
 // and `weight` are plain strings and are normalised in server.ts.
 
 import { z } from "zod";
-import { Evidence } from "@/features/cases/schema";
+import { Evidence, type CaseFile } from "@/features/cases/schema";
+import type { ShareStatus } from "@/features/shares/schema";
 
 export const MONEY_KINDS = ["value", "coverage", "specials", "wage loss", "lien", "offer", "demand", "other"] as const;
 export const LANES = ["treatment", "case", "negotiation", "client"] as const;
@@ -120,3 +121,16 @@ export type StoredBrief = {
   usage: { inputTokens: number; outputTokens: number };
   createdAt: string;
 };
+
+/** What every section of the brief page receives. */
+export type SectionProps = {
+  file: CaseFile;
+  stored: StoredBrief;
+  shares: ShareStatus[];
+  /** What indexing the documents cost; null when none has been indexed. */
+  index: IndexUsage | null;
+  /** Today as YYYY-MM-DD, fixed on the server so every section agrees. */
+  today: string;
+};
+
+export type IndexUsage = { model: string; documents: number; pages: number; inputTokens: number; outputTokens: number };
