@@ -1,11 +1,12 @@
 "use client";
 
 import { memo, useMemo, useRef, useState, type PointerEvent } from "react";
+import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { shortDate, type EntryKind } from "@/features/cases/schema";
 import { addDays, daysBetween, KIND_WORD, span } from "@/features/cases/words";
 import { cn } from "@/lib/utils";
-import { LANES, type SectionProps } from "./schema";
+import { LANES, type CheckedBrief, type SectionProps } from "./schema";
 import { SourceLinks, useSource } from "./source-panel";
 
 // ---- What is drawn ----
@@ -117,14 +118,105 @@ function NumberMark({ number, selected }: { number: number; selected: boolean })
   );
 }
 
+const MOMENT_LANES = {
+  treatment: { label: "Treatment", dot: "bg-teal-600", node: "border-teal-200 bg-teal-50 text-teal-800 dark:border-teal-700 dark:bg-teal-400/15 dark:text-teal-200" },
+  case: { label: "Case events", dot: "bg-sky-500", node: "border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-700 dark:bg-sky-400/15 dark:text-sky-200" },
+  negotiation: { label: "Negotiation", dot: "bg-amber-500", node: "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-400/15 dark:text-amber-200" },
+  client: { label: "Client", dot: "bg-violet-500", node: "border-violet-200 bg-violet-50 text-violet-800 dark:border-violet-700 dark:bg-violet-400/15 dark:text-violet-200" },
+  other: { label: "Other", dot: "bg-slate-500", node: "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-600 dark:bg-slate-400/15 dark:text-slate-200" },
+};
+
+function momentLane(lane: string) {
+  const normal = lane.trim().toLowerCase();
+  return MOMENT_LANES[(LANES as readonly string[]).includes(normal) ? normal as (typeof LANES)[number] : "other"];
+}
+
+type Milestone = CheckedBrief["moments"][number] & { day: string; number: number };
+
+/** Read the ten event titles at a glance, then open one for its significance and source passages. */
+export function Moments(props: SectionProps & { compact?: boolean }) {
+  const { file, stored, compact = false } = props;
+  const headingId = compact ? "moments-overview" : "moments";
+  const moments: Milestone[] = stored.brief.moments
+    .map((moment) => ({ ...moment, day: isDay(moment.date) ? moment.date.slice(0, 10) : "" }))
+    .sort((a, b) => (a.day || "9999").localeCompare(b.day || "9999"))
+    .map((moment, index) => ({ ...moment, number: index + 1 }));
+  const split = Math.ceil(moments.length / 2);
+  const groups = [moments.slice(0, split), moments.slice(split)].filter((group) => group.length > 0);
+  const lanes = [...new Set(moments.map((moment) => momentLane(moment.lane)))];
+  const entries = file.entries.filter((entry) => ROWS.some((row) => row.kinds.includes(entry.kind)) && isDay(entry.date)).length;
+
+  return (
+    <section aria-labelledby={headingId} data-moments-summary className="space-y-3">
+      <div className="space-y-1">
+        <h2 id={headingId} className="font-heading text-xl font-semibold tracking-tight">
+          {moments.length > 0 ? `The ${inWords(moments.length)} that matter` : "The moments that matter"}
+        </h2>
+        <p className="text-sm text-muted-foreground">Oldest to newest. Select an event for why it matters and its sources.</p>
+      </div>
+
+      {moments.length === 0 ? (
+        <p className="border-y py-3 text-sm text-muted-foreground">The saved brief has no key events. Check the full file or update the brief.</p>
+      ) : <>
+        <ul aria-label="Event categories" className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          {lanes.map((lane) => <li key={lane.label} className="flex items-center gap-1.5">
+            <span aria-hidden className={cn("size-2 rounded-full", lane.dot)} />{lane.label}
+          </li>)}
+        </ul>
+        <div className="grid items-start gap-x-7 sm:grid-cols-2">
+          {groups.map((group) => (
+            <ol key={group[0].number} start={group[0].number} aria-label={`Events ${group[0].number} to ${group.at(-1)!.number}`} className="min-w-0">
+              {group.map((moment, index) => <MilestoneRow key={moment.number} moment={moment} last={index === group.length - 1} group={headingId} />)}
+            </ol>
+          ))}
+        </div>
+      </>}
+
+      {entries > 0 && <details data-case-activity className="group/activity border-t pt-3">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-sm text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden">
+          <span className="text-muted-foreground">Explore all <span className="tabular-nums">{entries}</span> dated entries</span>
+          <ChevronDown aria-hidden className="size-4 shrink-0 text-muted-foreground group-open/activity:rotate-180" />
+        </summary>
+        <div className="pt-4"><CaseActivity {...props} /></div>
+      </details>}
+    </section>
+  );
+}
+
+function MilestoneRow({ moment, last, group }: { moment: Milestone; last: boolean; group: string }) {
+  const lane = momentLane(moment.lane);
+  return (
+    <li className="relative pl-8">
+      {!last && <span aria-hidden className="absolute top-5 bottom-[-1rem] left-3 w-px bg-border" />}
+      <details data-milestone={moment.number} name={`${group}-event`} className="group/milestone">
+        <summary className="relative grid min-h-12 cursor-pointer list-none grid-cols-[3rem_minmax(0,1fr)_0.75rem] items-center gap-x-2 rounded-sm py-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden">
+          <span aria-hidden className={cn("absolute top-1/2 -left-8 grid size-6 -translate-y-1/2 place-items-center rounded-full border text-[11px] font-semibold tabular-nums", lane.node)}>{moment.number}</span>
+          <span className="sr-only">{lane.label}. </span>
+          <time dateTime={moment.day || undefined} className="text-[11px] leading-4 text-muted-foreground tabular-nums">
+            {moment.day ? <>{shortDate(moment.day)}<span className="block">{moment.day.slice(0, 4)}</span></> : "Undated"}
+          </time>
+          <span data-moment-title className="text-[13px] font-medium leading-[18px] group-open/milestone:text-primary">{moment.title}</span>
+          <ChevronDown aria-hidden className="size-3 text-muted-foreground group-open/milestone:rotate-180" />
+        </summary>
+        <div className="space-y-2 border-l-2 border-marker py-2 pl-3">
+          <p className="text-xs font-medium text-muted-foreground">{lane.label}</p>
+          <p className="text-sm leading-5">{moment.why || "The brief gives no explanation for this event. Check its sources for context."}</p>
+          {moment.evidence.length > 0 ? <SourceLinks evidence={moment.evidence} quotes />
+            : <p className="text-xs text-muted-foreground">No source supplied in the brief; check the full file.</p>}
+        </div>
+      </details>
+    </li>
+  );
+}
+
 /**
  * The moments that matter: a strip of the whole life of the case, every dated entry a faint line,
  * with the moments the brief picked numbered above it, and the same moments as a ledger below.
  * Selecting a number on the strip marks its row in the ledger, and the other way round.
  */
-export function Moments({ file, stored, today, compact = false }: SectionProps & { /** The strip alone, for the overview; the ledger is on the Timeline tab. */ compact?: boolean }) {
+function CaseActivity({ file, stored, today, compact = false }: SectionProps & { compact?: boolean }) {
   // Both forms are on the page at once (tabs stay mounted), so each needs its own heading id.
-  const headingId = compact ? "moments-overview" : "moments";
+  const headingId = compact ? "moments-activity-overview" : "moments-activity";
   const { openRef } = useSource();
   const [range, setRange] = useState<RangeId>("all");
   const [selected, setSelected] = useState<number | null>(null);
@@ -256,7 +348,7 @@ export function Moments({ file, stored, today, compact = false }: SectionProps &
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
         <div className="space-y-1">
           <h2 id={headingId} className="font-heading text-xl font-semibold tracking-tight">
-            {total > 0 ? `The ${inWords(total)} that matter` : "The moments that matter"}
+            File activity
           </h2>
           <p className="text-sm text-muted-foreground">
             {whole.marks.length === 0
@@ -450,11 +542,11 @@ export function Moments({ file, stored, today, compact = false }: SectionProps &
         </div>
       )}
 
-      {compact && selected === null ? null : total === 0 ? (
+      {selected === null ? null : total === 0 ? (
         <p className="border-y py-3 text-sm text-muted-foreground">The brief picks out no moments for this case.</p>
       ) : (
         <ol className="divide-y border-y">
-          {whole.moments.filter((moment) => !compact || moment.number === selected).map((moment) => {
+          {whole.moments.filter((moment) => moment.number === selected).map((moment) => {
             const isSelected = moment.number === selected;
             const lane = moment.lane.trim().toLowerCase();
             return (
