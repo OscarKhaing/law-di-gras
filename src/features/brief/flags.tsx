@@ -67,7 +67,9 @@ export function Flags({ file, stored }: SectionProps) {
                 </div>
                 {flag.evidence.some((item) => entries.has(parseSource(item.source).ref)) ? (
                   <div className="self-start border-l-2 border-marker pl-3">
-                    <SourceLinks evidence={flag.evidence} quotes />
+                    {/* Two passages, one for each side; any further sources as plain links. */}
+                    <SourceLinks evidence={flag.evidence.slice(0, 2)} quotes />
+                    <SourceLinks evidence={flag.evidence.slice(2)} />
                   </div>
                 ) : (
                   <p className="text-xs text-muted-foreground">The brief gives no source for this.</p>
