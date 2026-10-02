@@ -216,7 +216,7 @@ export function AskBar({ file, today }: { file: CaseFile; today: string }) {
           readOnly={listening}
           maxLength={500}
           aria-label="Ask about this case"
-          placeholder={listening ? "Listening. Ask your question, then pause." : "Ask about this case"}
+          placeholder={listening ? "Listening. Ask your question, then pause." : "Ask about this case: who are we waiting on? what is the coverage limit?"}
           className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
         />
         {hears && (

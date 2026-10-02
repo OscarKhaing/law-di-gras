@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
-import { clioMatterUrl, isFreshRead, type CaseFile } from "@/features/cases/schema";
+import { clioMatterUrl, type CaseFile } from "@/features/cases/schema";
 import { LocalTime } from "@/features/cases/local-time";
 import { StageTrack } from "@/features/cases/stage-track";
-import { CheckClio, FreshReadLink } from "./read-case";
+import { CheckClio } from "./read-case";
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -77,7 +77,6 @@ export function CaseHeader({
         <a href={`/handoff/${file.matterId}`} target="_blank" rel="noreferrer" className="block text-xs underline underline-offset-2 hover:text-foreground">
           Print a handoff sheet
         </a>
-        {!isFreshRead(file.matterId) && <FreshReadLink matterId={file.matterId} />}
       </div>
     </header>
   );

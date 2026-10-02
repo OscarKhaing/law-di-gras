@@ -24,13 +24,13 @@ export const ROLES: { id: Role; label: string }[] = [
  */
 export const READING_ORDER: Record<Role, string[][]> = {
   attorney: [
-    ["overview", "flags", "money"],
-    ["timeline", "medical", "todo"],
+    ["overview", "flags", "money", "time"],
+    ["timeline", "medical", "todo", "calls"],
     ["file", "about"],
   ],
   "case-manager": [
-    ["todo", "medical", "timeline"],
-    ["overview", "money", "flags"],
+    ["todo", "calls", "medical", "timeline"],
+    ["overview", "money", "time", "flags"],
     ["file", "about"],
   ],
 };

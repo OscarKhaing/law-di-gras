@@ -146,7 +146,7 @@ function ProviderRow({
             href={`/cases/${clioMatterId(file.matterId)}/providers/${ref}`}
             className={buttonVariants({ size: "sm", variant: person.owes ? "default" : "outline" })}
           >
-            Prepare update
+            Share an update
           </Link>
         ) : (
           <p className="text-xs text-muted-foreground">An update needs this contact in Clio first.</p>
@@ -187,7 +187,7 @@ function ProviderRow({
                   </li>
                 ))}
               </ul>
-              {files.length > 3 && <p>and {files.length - 3} more, all listed under &ldquo;Prepare update&rdquo;.</p>}
+              {files.length > 3 && <p>and {files.length - 3} more, all listed under &ldquo;Share an update&rdquo;.</p>}
             </div>
           )}
         </div>

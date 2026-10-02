@@ -217,13 +217,13 @@ export function BriefView({
       content: (
         <div className="space-y-6">
           <Panel>
+            <Money {...section} />
+          </Panel>
+          <Panel>
             <Settlement {...section} />
           </Panel>
           <Panel>
             <Bills {...section} />
-          </Panel>
-          <Panel>
-            <Money {...section} />
           </Panel>
         </div>
       ),

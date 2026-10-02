@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
-import { shortDate } from "@/features/cases/schema";
+import { isFreshRead, shortDate } from "@/features/cases/schema";
 import { Disclosure } from "./fold";
+import { FreshReadLink } from "./read-case";
 import type { SectionProps } from "./schema";
 
 // US dollars per million tokens, matched on the start of the model id.
@@ -116,6 +117,12 @@ export function HowMade({ file, stored, index, today }: SectionProps) {
           )}
           <p>Opening the case costs nothing, because nothing is read again.</p>
         </Row>
+        {!isFreshRead(file.matterId) && (
+          <Row label="See it happen">
+            <p>Read this case from Clio again from nothing, on a separate copy, to watch every step and how long it takes.</p>
+            <FreshReadLink matterId={file.matterId} />
+          </Row>
+        )}
       </dl>
     </Disclosure>
   );
