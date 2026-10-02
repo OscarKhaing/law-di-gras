@@ -101,13 +101,14 @@ export function CaseTabs({ side, notice, tabs }: { side: ReactNode; notice?: Rea
         className="grid items-start gap-6 lg:grid-cols-[14rem_minmax(0,1fr)] lg:gap-8"
       >
         {/*
-          The column runs the full height of the reading area. Who the case is about scrolls away with
-          the page; the menu card stays pinned, and is short enough to fit any screen whole, so it is
-          never cut off at the top or bottom of the window.
+          The whole column stays pinned beside the reading area and scrolls on its own when it is
+          taller than the window, so who the case is about, the role switch and the menu can all be
+          reached without losing one's place in the part being read. Reaching its end does not carry
+          on into the page.
         */}
-        <aside className="min-w-0 space-y-3 lg:self-stretch">
+        <aside className="min-w-0 space-y-3 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-3rem)] lg:overflow-y-auto lg:overscroll-contain lg:px-0.5 lg:pb-1 lg:[scrollbar-width:thin]">
           {side}
-          <div className="rounded-2xl border bg-card shadow-xs lg:sticky lg:top-6">
+          <div className="rounded-2xl border bg-card shadow-xs">
             <RoleSwitch role={role} onChange={setRole} className="border-b p-3" />
             {/* The firm's sidebar counts cases across the whole firm; this menu and its counts are
                 about the one case that is open. The label says so, in the same quiet words the
