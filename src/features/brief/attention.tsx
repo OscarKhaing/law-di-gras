@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { overdue, shortDate, upcoming, type Entry } from "@/features/cases/schema";
 import { KIND_WORD, addDays, daysBetween, fromToday, span } from "@/features/cases/words";
 import type { SectionProps } from "./schema";
+import { useFirst } from "./show-all";
 import { SourceLinks, useSource } from "./source-panel";
 
 const AHEAD = 30;
@@ -26,14 +27,18 @@ function Row({ label, count, children }: { label: string; count: number; childre
 const Nothing = ({ children }: { children: ReactNode }) => <p className="text-sm text-muted-foreground">{children}</p>;
 
 function Items<T>({ items, render }: { items: T[]; render: (item: T) => ReactNode }) {
+  const { shown, more } = useFirst(items);
   return (
-    <ul className="max-w-[46rem] space-y-2.5">
-      {items.map((item, index) => (
-        <li key={index} className="space-y-0.5">
-          {render(item)}
-        </li>
-      ))}
-    </ul>
+    <div className="max-w-[46rem] space-y-2.5">
+      <ul className="space-y-2.5">
+        {shown.map((item, index) => (
+          <li key={index} className="space-y-0.5">
+            {render(item)}
+          </li>
+        ))}
+      </ul>
+      {more}
+    </div>
   );
 }
 

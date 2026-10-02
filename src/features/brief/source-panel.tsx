@@ -162,8 +162,12 @@ function details(entry: Entry): [string, string][] {
 const linkClass =
   "cursor-pointer rounded-sm underline decoration-input underline-offset-2 outline-none hover:text-foreground hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring/50";
 
-/** The sources of one statement: each quoted passage as a marker stroke, each source as a small link. */
-export function SourceLinks({ evidence }: { evidence: SourceEvidence[] }) {
+/**
+ * The sources of one statement, as small links; the quoted passage shows in the panel when one is
+ * opened. With `quotes`, each passage is also drawn here as a marker stroke: only where the passage
+ * is the point (red flags, the selected moment), so the brief stays short enough to read in 90 seconds.
+ */
+export function SourceLinks({ evidence, quotes = false }: { evidence: SourceEvidence[]; quotes?: boolean }) {
   const { entries, open, year } = useContext(SourceContext);
   const seen = new Set<string>();
   const items = evidence.flatMap((item) => {
@@ -175,6 +179,28 @@ export function SourceLinks({ evidence }: { evidence: SourceEvidence[] }) {
     return [{ item, key, label: sourceLabel(entry, page, year), quote: decodeEntities(item.quote).trim() }];
   });
   if (items.length === 0) return null;
+
+  if (!quotes) {
+    return (
+      <span className="block text-xs leading-relaxed text-muted-foreground">
+        {items.map(({ item, key, label }, index) => (
+          <span key={key}>
+            {index > 0 && ", "}
+            <button
+              type="button"
+              className={cn(linkClass, item.found === false && "decoration-dotted")}
+              title={item.found === false ? "The quote was not found word for word in this source" : undefined}
+              onClick={() => open(item)}
+            >
+              {label}
+              {item.found === false && <span className="sr-only"> (quote not found word for word)</span>}
+            </button>
+          </span>
+        ))}
+      </span>
+    );
+  }
+
   const quoted = items.filter((entry) => entry.quote !== "");
   const plain = items.filter((entry) => entry.quote === "");
 

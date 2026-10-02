@@ -1,6 +1,9 @@
+"use client";
+
 import { byRef, parseSource } from "@/features/cases/schema";
 import { cn } from "@/lib/utils";
 import type { SectionProps } from "./schema";
+import { useFirst } from "./show-all";
 import { SourceLinks } from "./source-panel";
 
 const WEIGHTS = ["high", "medium", "low"] as const;
@@ -22,9 +25,13 @@ function weightOf(raw: string): Weight {
 export function Flags({ file, stored }: SectionProps) {
   const flags = stored.brief.flags;
   const entries = byRef(file);
+  // Heaviest first; past the first five, the rest wait behind "Show all".
+  const ordered = WEIGHTS.flatMap((weight) => flags.filter((flag) => weightOf(flag.weight) === weight));
+  const { shown, more } = useFirst(ordered);
   const groups = WEIGHTS.map((weight) => ({
     weight,
-    flags: flags.filter((flag) => weightOf(flag.weight) === weight),
+    count: flags.filter((flag) => weightOf(flag.weight) === weight).length,
+    flags: shown.filter((flag) => weightOf(flag.weight) === weight),
   })).filter((group) => group.flags.length > 0);
 
   return (
@@ -52,7 +59,7 @@ export function Flags({ file, stored }: SectionProps) {
                 <span className={group.weight === "high" ? "font-semibold" : "font-medium text-muted-foreground"}>
                   {LABEL[group.weight]}
                 </span>
-                <span className="text-muted-foreground">{group.flags.length}</span>
+                <span className="text-muted-foreground">{group.count}</span>
               </h3>
               <ul className="space-y-5">
                 {group.flags.map((flag, index) => (
@@ -80,7 +87,9 @@ export function Flags({ file, stored }: SectionProps) {
                     {flag.evidence.some((item) => entries.has(parseSource(item.source).ref)) ? (
                       // One passage under the other, each with its source, tied together by a marker rule.
                       <div className="mt-2 max-w-prose border-l-2 border-marker pl-3 [&_mark]:text-[15px]">
-                        <SourceLinks evidence={flag.evidence} />
+                        {/* Two passages, one for each side; any further sources as plain links. */}
+                        <SourceLinks evidence={flag.evidence.slice(0, 2)} quotes />
+                        <SourceLinks evidence={flag.evidence.slice(2)} />
                       </div>
                     ) : (
                       <p className="text-xs text-muted-foreground">The brief gives no source for this.</p>
@@ -92,6 +101,7 @@ export function Flags({ file, stored }: SectionProps) {
           ))}
         </div>
       )}
+      {more}
     </section>
   );
 }

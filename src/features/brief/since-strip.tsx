@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { changedSince, shortDate, type CaseFile, type Entry, type EntryKind } from "@/features/cases/schema";
-import { addDays } from "@/features/cases/words";
+import { KIND_WORD, addDays } from "@/features/cases/words";
 import { postJson } from "@/lib/fetch-json";
 import { cn } from "@/lib/utils";
 import { useSource } from "./source-panel";
@@ -20,7 +20,9 @@ const GROUPS: { kind: EntryKind; label: string }[] = [
   { kind: "expense", label: "Expenses" },
   { kind: "document", label: "Documents" },
 ];
-const FIRST = 3;
+const FIRST = 5;
+
+const newestFirst = (a: Entry, b: Entry) => (b.date || b.createdAt).localeCompare(a.date || a.createdAt);
 
 /** An id for this browser, so "since you last opened" is about this reader. There is no sign-in. */
 function viewerId() {
@@ -51,7 +53,8 @@ export function SinceStrip({ file, today }: { file: CaseFile; today: string }) {
   const { openRef } = useSource();
   const [visit, setVisit] = useState<Visit>({ status: "checking" });
   const [chosen, setChosen] = useState<Range | null>(null);
-  const [expanded, setExpanded] = useState<EntryKind[]>([]);
+  const [kind, setKind] = useState<EntryKind | null>(null);
+  const [all, setAll] = useState(false);
   const asked = useRef(false);
 
   useEffect(() => {
@@ -89,6 +92,9 @@ export function SinceStrip({ file, today }: { file: CaseFile; today: string }) {
     (group) => group.entries.length > 0,
   );
 
+  const listed = kind ? fresh.filter((entry) => entry.kind === kind) : groups.flatMap((group) => group.entries).sort(newestFirst);
+  const shown = all ? listed : listed.slice(0, FIRST);
+
   const days = range === "visit" ? 30 : range;
   const sinceVisit = range === "visit" && previous ? whenOpened(previous, today) : null;
   // With nothing to list, the heading itself says so.
@@ -122,7 +128,8 @@ export function SinceStrip({ file, today }: { file: CaseFile; today: string }) {
                 disabled={option.off}
                 onClick={() => {
                   setChosen(option.value);
-                  setExpanded([]);
+                  setKind(null);
+                  setAll(false);
                 }}
                 className={cn(
                   "cursor-pointer border-b pb-0.5 outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-default disabled:opacity-50",
@@ -150,47 +157,52 @@ export function SinceStrip({ file, today }: { file: CaseFile; today: string }) {
       </div>
 
       {groups.length > 0 && (
-        <div className="divide-y border-b pl-4">
-          {groups.map((group) => {
-            const all = expanded.includes(group.kind);
-            const shown = all ? group.entries : group.entries.slice(0, FIRST);
-            return (
-              <div key={group.kind} className="grid gap-x-6 py-2 sm:grid-cols-[8.5rem_minmax(0,1fr)]">
-                <h3 className="text-sm">
-                  {group.label}
-                  <span className="ml-1.5 text-muted-foreground tabular-nums">{group.entries.length}</span>
-                </h3>
-                <ul className="min-w-0 space-y-1">
-                  {shown.map((entry) => (
-                    <li key={entry.ref} className="grid grid-cols-[3.25rem_minmax(0,1fr)] gap-x-2">
-                      <span className="pt-px text-xs leading-5 text-muted-foreground tabular-nums">{shortDate(entry.date)}</span>
-                      <button
-                        type="button"
-                        onClick={() => openRef(entry.ref)}
-                        className="cursor-pointer justify-self-start rounded-sm text-left font-serif text-sm leading-5 underline decoration-input underline-offset-2 outline-none hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
-                      >
-                        {entry.title || "Untitled"}
-                      </button>
-                    </li>
-                  ))}
-                  {group.entries.length > FIRST && (
-                    <li className="pl-[3.75rem]">
-                      <button
-                        type="button"
-                        aria-expanded={all}
-                        onClick={() =>
-                          setExpanded((kinds) => (all ? kinds.filter((kind) => kind !== group.kind) : [...kinds, group.kind]))
-                        }
-                        className="cursor-pointer rounded-sm text-xs text-muted-foreground underline decoration-input underline-offset-2 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
-                      >
-                        {all ? "Show fewer" : `Show ${group.entries.length - FIRST} more`}
-                      </button>
-                    </li>
-                  )}
-                </ul>
-              </div>
-            );
-          })}
+        // A count per kind, then the newest five; the rest on demand.
+        <div className="space-y-2 border-b py-2.5 pl-4">
+          <div role="group" aria-label="Kind of entry" className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+            {groups.map((group) => (
+              <button
+                key={group.kind}
+                type="button"
+                aria-pressed={kind === group.kind}
+                onClick={() => {
+                  setKind(kind === group.kind ? null : group.kind);
+                  setAll(false);
+                }}
+                className={cn(
+                  "cursor-pointer border-b outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+                  kind === group.kind ? "border-foreground font-medium" : "border-transparent hover:border-input",
+                )}
+              >
+                {group.label}
+                <span className="ml-1.5 text-muted-foreground tabular-nums">{group.entries.length}</span>
+              </button>
+            ))}
+          </div>
+          <ul className="min-w-0 space-y-1">
+            {shown.map((entry) => (
+              <li key={entry.ref} className="grid grid-cols-[3.25rem_5.5rem_minmax(0,1fr)] gap-x-2">
+                <span className="pt-px text-xs leading-5 text-muted-foreground tabular-nums">{shortDate(entry.date)}</span>
+                <span className="pt-px text-xs leading-5 text-muted-foreground">{KIND_WORD[entry.kind]}</span>
+                <button
+                  type="button"
+                  onClick={() => openRef(entry.ref)}
+                  className="cursor-pointer justify-self-start rounded-sm text-left font-serif text-sm leading-5 underline decoration-input underline-offset-2 outline-none hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+                >
+                  {entry.title || "Untitled"}
+                </button>
+              </li>
+            ))}
+          </ul>
+          {listed.length > shown.length && (
+            <button
+              type="button"
+              onClick={() => setAll(true)}
+              className="cursor-pointer rounded-sm text-xs text-muted-foreground underline decoration-input underline-offset-2 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+            >
+              Show all {listed.length}
+            </button>
+          )}
         </div>
       )}
     </section>

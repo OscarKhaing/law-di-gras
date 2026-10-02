@@ -6,6 +6,7 @@ import { shortDate, type EntryKind } from "@/features/cases/schema";
 import { addDays, daysBetween, KIND_WORD, span } from "@/features/cases/words";
 import { cn } from "@/lib/utils";
 import { LANES, type SectionProps } from "./schema";
+import { FIRST } from "./show-all";
 import { SourceLinks, useSource } from "./source-panel";
 
 // ---- What is drawn ----
@@ -126,6 +127,8 @@ export function Moments({ file, stored, today }: SectionProps) {
   const { openRef } = useSource();
   const [range, setRange] = useState<RangeId>("all");
   const [selected, setSelected] = useState<number | null>(null);
+  // The strip draws all ten; the ledger below lists the first five, plus whichever one is selected.
+  const [listAll, setListAll] = useState(false);
   const [hover, setHover] = useState<Hover | null>(null);
   const ledgerRows = useRef(new Map<number, HTMLLIElement>());
 
@@ -210,6 +213,7 @@ export function Moments({ file, stored, today }: SectionProps) {
   }, [whole, range, today]);
 
   const total = whole.moments.length;
+  const listed = whole.moments.filter((moment, index) => listAll || index < FIRST || moment.number === selected);
   const zone = shown.levels * LEVEL_HEIGHT + 4;
   const rowsHeight = ROWS.length * ROW_HEIGHT;
   const todayLeft = shown.at(today);
@@ -451,7 +455,7 @@ export function Moments({ file, stored, today }: SectionProps) {
         <p className="border-y py-3 text-sm text-muted-foreground">The brief picks out no moments for this case.</p>
       ) : (
         <ol className="divide-y border-y">
-          {whole.moments.map((moment) => {
+          {listed.map((moment) => {
             const isSelected = moment.number === selected;
             const lane = moment.lane.trim().toLowerCase();
             return (
@@ -482,7 +486,7 @@ export function Moments({ file, stored, today }: SectionProps) {
                   <h3 className="font-serif text-[17px] leading-snug text-pretty">{moment.title}</h3>
                   {moment.why && <p className="max-w-prose text-sm leading-relaxed">{moment.why}</p>}
                   {moment.evidence.length > 0 ? (
-                    <SourceLinks evidence={moment.evidence} />
+                    <SourceLinks evidence={moment.evidence} quotes={isSelected} />
                   ) : (
                     <p className="text-xs text-muted-foreground">The brief gives no source for this.</p>
                   )}
@@ -491,6 +495,15 @@ export function Moments({ file, stored, today }: SectionProps) {
             );
           })}
         </ol>
+      )}
+      {!listAll && total > FIRST && (
+        <button
+          type="button"
+          onClick={() => setListAll(true)}
+          className="mt-3 cursor-pointer rounded-sm text-sm font-medium text-primary underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/50"
+        >
+          Show all {total}
+        </button>
       )}
     </section>
   );

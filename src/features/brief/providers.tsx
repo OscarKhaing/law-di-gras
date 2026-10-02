@@ -5,8 +5,8 @@ import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { byRef, parseSource, shortDate, type CaseFile, type Entry } from "@/features/cases/schema";
 import type { ShareStatus } from "@/features/shares/schema";
-import { cn } from "@/lib/utils";
 import type { CheckedBrief, SectionProps } from "./schema";
+import { useFirst } from "./show-all";
 import { SourceLinks, useSource } from "./source-panel";
 
 type Person = CheckedBrief["people"][number];
@@ -32,6 +32,7 @@ export function Providers({ file, stored, shares, today }: SectionProps) {
     ...people.filter(({ person }) => person.treating && person.owes === ""),
   ];
   const others = people.filter(({ person }) => !person.treating);
+  const { shown, more } = useFirst(treating);
 
   return (
     <section aria-labelledby="treating-providers" className="space-y-8">
@@ -50,18 +51,27 @@ export function Providers({ file, stored, shares, today }: SectionProps) {
         {treating.length === 0 ? (
           <p className="border-y py-3 text-sm text-muted-foreground">The brief names no treating providers on this case.</p>
         ) : (
-          <div className="divide-y border-y">
-            {treating.map((joined, index) => (
-              <ProviderRow key={`${joined.ref}-${index}`} joined={joined} file={file} shares={shares} today={today} />
-            ))}
-          </div>
+          <>
+            <div className="divide-y border-y">
+              {shown.map((joined, index) => (
+                <ProviderRow key={`${joined.ref}-${index}`} joined={joined} file={file} shares={shares} today={today} />
+              ))}
+            </div>
+            {more}
+          </>
         )}
       </div>
 
-      <div className="space-y-3">
-        <h3 id="others-on-the-case" className="font-heading text-lg font-semibold tracking-tight">
-          Others on the case
-        </h3>
+      {/* Closed by default: the brief is read in 90 seconds, and these people are not the providers an update is for. */}
+      <details className="group/others space-y-3">
+        <summary className="cursor-pointer list-none rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
+          <h3 id="others-on-the-case" className="inline font-heading text-lg font-semibold tracking-tight">
+            Others on the case
+          </h3>
+          <span className="ml-2 text-sm text-muted-foreground tabular-nums">{others.length}</span>
+          <span className="ml-3 text-sm text-primary group-open/others:hidden">Show</span>
+          <span className="ml-3 hidden text-sm text-primary group-open/others:inline">Hide</span>
+        </summary>
         {others.length === 0 ? (
           <p className="border-y py-3 text-sm text-muted-foreground">The brief names nobody else on this case.</p>
         ) : (
@@ -82,7 +92,7 @@ export function Providers({ file, stored, shares, today }: SectionProps) {
             ))}
           </div>
         )}
-      </div>
+      </details>
     </section>
   );
 }
@@ -107,29 +117,40 @@ function ProviderRow({
     .flatMap((share) => share.replies)
     .sort((a, b) => b.at.localeCompare(a.at));
 
+  const action = entry ? (
+    <Link
+      href={`/cases/${file.matterId}/providers/${ref}`}
+      className={buttonVariants({ size: "sm", variant: person.owes ? "default" : "outline" })}
+    >
+      Prepare update
+    </Link>
+  ) : (
+    <p className="text-xs text-muted-foreground">An update needs this contact in Clio first.</p>
+  );
+
   return (
     <div className="grid gap-x-6 gap-y-3 py-4 sm:grid-cols-[minmax(0,15rem)_minmax(0,1fr)]">
-      <Who person={person} entry={entry} details />
+      <div className="space-y-2">
+        <Who person={person} entry={entry} details />
+        <div>{action}</div>
+      </div>
 
       <div className="space-y-2">
         <Line label="Care given">
           {person.did ? <p className="max-w-prose leading-relaxed">{person.did}</p> : <Unsaid />}
         </Line>
-        <Line label="On file">
-          {person.holds ? <p className="max-w-prose leading-relaxed">{person.holds}</p> : <Unsaid />}
-        </Line>
-        <Line label="Waiting for">
-          {person.owes ? (
+        {person.holds && (
+          <Line label="On file">
+            <p className="max-w-prose leading-relaxed">{person.holds}</p>
+          </Line>
+        )}
+        {person.owes && (
+          <Line label="Waiting for">
             <Owed>{person.owes}</Owed>
-          ) : (
-            <p className="text-muted-foreground">Nothing outstanding from this office.</p>
-          )}
-        </Line>
-        <Line label="Sources">
-          <Sources person={person} file={file} />
-        </Line>
-        <Line label="On the calendar">
-          {visit ? (
+          </Line>
+        )}
+        {visit && (
+          <Line label="Next">
             <button
               type="button"
               onClick={() => openRef(visit.ref)}
@@ -140,35 +161,22 @@ function ProviderRow({
                 <span className="text-muted-foreground"> at {visit.facts.location}</span>
               )}
             </button>
-          ) : (
-            <p className="text-muted-foreground">Nothing coming up with this office.</p>
-          )}
-        </Line>
-        <Line label="Shared update">
-          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4">
-            <p className={cn("max-w-prose leading-relaxed", mine.length === 0 && "text-muted-foreground")}>
-              {shareLine(mine[0], today)}
-            </p>
-            {entry ? (
-              <Link
-                href={`/cases/${file.matterId}/providers/${ref}`}
-                className={buttonVariants({ size: "sm", variant: person.owes ? "default" : "outline" })}
-              >
-                Prepare update
-              </Link>
-            ) : (
-              <p className="text-xs text-muted-foreground">An update needs this contact in Clio first.</p>
-            )}
-          </div>
-          {replies.map((reply, index) => (
-            <p key={index} className="mt-2 max-w-prose border-l-2 border-marker bg-marker-soft px-2.5 py-1.5">
-              <span className="block text-xs text-muted-foreground">
-                From the provider, not yet in Clio ({dayAt(reply.at, today)}):
-              </span>
-              <span className="font-serif text-[15px] leading-snug">{reply.text}</span>
-            </p>
-          ))}
-        </Line>
+          </Line>
+        )}
+        {mine.length > 0 && (
+          <Line label="Shared update">
+            <p className="max-w-prose leading-relaxed">{shareLine(mine[0], today)}</p>
+            {replies.map((reply, index) => (
+              <p key={index} className="mt-2 max-w-prose border-l-2 border-marker bg-marker-soft px-2.5 py-1.5">
+                <span className="block text-xs text-muted-foreground">
+                  From the provider, not yet in Clio ({dayAt(reply.at, today)}):
+                </span>
+                <span className="font-serif text-[15px] leading-snug">{reply.text}</span>
+              </p>
+            ))}
+          </Line>
+        )}
+        <Sources person={person} file={file} />
       </div>
     </div>
   );
