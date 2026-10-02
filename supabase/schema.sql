@@ -87,3 +87,39 @@ alter table shares enable row level security;
 alter table share_events enable row level security;
 
 notify pgrst, 'reload schema';
+
+-- ---- Added 2026-10-02 afternoon: calls placed through Case Desk, and things worked out from a case ----
+
+-- A call placed through Case Desk (Twilio). Its length is the real one Twilio reports.
+create table if not exists calls (
+  id uuid primary key default gen_random_uuid(),
+  matter_id bigint not null,
+  contact_ref text,                 -- the contact in the case file, when there is one
+  contact_name text not null,
+  to_number text not null,
+  placed_by text not null,
+  call_sid text unique,             -- Twilio's id; null for a call that was only logged
+  status text not null default 'started',
+  started_at timestamptz not null default now(),
+  answered_at timestamptz,
+  ended_at timestamptz,
+  seconds int,                      -- the real length, from Twilio
+  transcript jsonb not null default '[]'::jsonb,
+  summary text
+);
+create index if not exists calls_matter on calls (matter_id, started_at desc);
+
+-- Things worked out from a case and kept, such as the date each stage began.
+create table if not exists case_extras (
+  matter_id bigint not null,
+  kind text not null,
+  fingerprint text not null,
+  value jsonb not null,
+  created_at timestamptz not null default now(),
+  primary key (matter_id, kind)
+);
+
+alter table calls enable row level security;
+alter table case_extras enable row level security;
+
+notify pgrst, 'reload schema';

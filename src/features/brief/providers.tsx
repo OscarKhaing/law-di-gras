@@ -1,5 +1,6 @@
 "use client";
 
+import { CallButton } from "@/features/calls/call-button";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
@@ -149,6 +150,14 @@ function ProviderRow({
           </Link>
         ) : (
           <p className="text-xs text-muted-foreground">An update needs this contact in Clio first.</p>
+        )}
+        {entry && (
+          <CallButton
+            matterId={clioMatterId(file.matterId)}
+            contactRef={ref}
+            contactName={entry.title}
+            phone={String(entry.facts.phone ?? "")}
+          />
         )}
         <ShareStatusPill share={mine[0]} today={today} />
         <p className={cn("text-xs leading-4", mine.length === 0 ? "text-muted-foreground" : "text-foreground")}>

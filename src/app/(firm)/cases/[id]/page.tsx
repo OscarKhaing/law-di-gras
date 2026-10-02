@@ -5,6 +5,7 @@ import { FreshRead, ReadCase } from "@/features/brief/read-case";
 import { getBrief } from "@/features/brief/server";
 import { clioMatterId, isFreshRead } from "@/features/cases/schema";
 import { getCaseFile } from "@/features/cases/server";
+import { callsFor } from "@/features/calls/server";
 import { clientPhotoUrl, getPageNotes, indexUsage } from "@/features/documents/server";
 import { sharesFor } from "@/features/shares/server";
 
@@ -23,7 +24,7 @@ async function optional<T>(what: string, load: Promise<T>, fallback: T): Promise
 }
 
 async function load(matterId: number) {
-  const [file, stored, shares, photoUrl, index, pages] = await Promise.all([
+  const [file, stored, shares, photoUrl, index, pages, calls] = await Promise.all([
     getCaseFile(matterId),
     getBrief(matterId),
     // Updates are shared from the case itself, so a fresh read shows the same ones.
@@ -31,8 +32,10 @@ async function load(matterId: number) {
     optional("client photo", clientPhotoUrl(matterId), null),
     optional("document reading cost", indexUsage(matterId), null),
     optional("page index", getPageNotes(matterId), {}),
+    // Calls are placed from the case itself, so a fresh read shows the same ones.
+    optional("calls", callsFor(clioMatterId(matterId)), []),
   ]);
-  return { file, stored, shares, photoUrl, index, pages };
+  return { file, stored, shares, photoUrl, index, pages, calls };
 }
 
 // The brief for one case. This page only loads what is stored and hands it down: opening it never
@@ -80,6 +83,7 @@ export default async function CasePage({ params }: PageProps<"/cases/[id]">) {
           shares={loaded.shares}
           index={loaded.index}
           pages={loaded.pages}
+          calls={loaded.calls}
           today={today}
           photoUrl={loaded.photoUrl}
         />

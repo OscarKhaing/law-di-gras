@@ -1,7 +1,7 @@
 // Check that every table in supabase/schema.sql exists: `pnpm -s script scripts/check-db.ts`.
 import { supabase } from "@/server/supabase";
 
-const TABLES = ["clio_connection", "case_files", "document_digests", "briefs", "visits", "shares", "share_events"];
+const TABLES = ["clio_connection", "case_files", "document_digests", "briefs", "visits", "shares", "share_events", "calls", "case_extras"];
 
 async function main() {
   let missing = 0;

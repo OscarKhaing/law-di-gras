@@ -1,10 +1,13 @@
-import { Banknote, CalendarDays, Flag, FolderOpen, Info, LayoutDashboard, ListTodo, Stethoscope } from "lucide-react";
+import { Banknote, CalendarDays, Clock, Flag, FolderOpen, Info, LayoutDashboard, ListTodo, Stethoscope } from "lucide-react";
 import { Panel } from "@/components/panel";
 import { StatusPill } from "@/components/status";
 import { overdue, shortDate, upcoming, type CaseFile } from "@/features/cases/schema";
 import { addDays, daysBetween } from "@/features/cases/words";
 import type { ShareStatus } from "@/features/shares/schema";
+import { AskBar } from "@/features/ask/ask-bar";
+import type { CallLog } from "@/features/calls/schema";
 import type { PageNote } from "@/features/documents/schema";
+import { TimeOnDesk } from "@/features/time/time-on-desk";
 import { Attention } from "./attention";
 import { Bills } from "./bills";
 import { CaseTabs, StatusTiles, type CaseTab } from "./case-tabs";
@@ -43,6 +46,7 @@ export function BriefView({
   shares,
   index,
   pages,
+  calls,
   today,
   photoUrl,
 }: {
@@ -51,6 +55,7 @@ export function BriefView({
   shares: ShareStatus[];
   index: IndexUsage | null;
   pages: Record<string, PageNote[]>;
+  calls: CallLog[];
   today: string;
   photoUrl: string | null;
 }) {
@@ -69,7 +74,7 @@ export function BriefView({
     );
   }
 
-  const section: SectionProps = { file, stored, shares, index, pages, today };
+  const section: SectionProps = { file, stored, shares, index, pages, calls, today };
   const { brief } = stored;
   const late = overdue(file, today);
   const thisWeek = upcoming(file, today, addDays(today, WEEK));
@@ -221,6 +226,16 @@ export function BriefView({
       ),
     },
     {
+      id: "time",
+      label: "Time on desk",
+      icon: <Clock />,
+      content: (
+        <Panel>
+          <TimeOnDesk {...section} />
+        </Panel>
+      ),
+    },
+    {
       id: "timeline",
       label: "Timeline",
       icon: <CalendarDays />,
@@ -262,7 +277,12 @@ export function BriefView({
     <SourceProvider file={file}>
       <CaseTabs
         side={<CaseHeader file={file} photoUrl={photoUrl} vitals={vitals} />}
-        notice={!stored.current && <ReadCase matterId={file.matterId} situation="stale" />}
+        notice={
+          <>
+            {!stored.current && <ReadCase matterId={file.matterId} situation="stale" />}
+            <AskBar file={file} today={today} />
+          </>
+        }
         tabs={tabs}
       />
     </SourceProvider>

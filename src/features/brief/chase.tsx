@@ -1,5 +1,6 @@
 "use client";
 
+import { CallButton } from "@/features/calls/call-button";
 import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { CheckIcon } from "lucide-react";
@@ -400,6 +401,14 @@ function ChaseRow({
           <Link href={`/cases/${clioMatterId(file.matterId)}/providers/${party.contact.ref}`} className={foldClass}>
             Prepare update
           </Link>
+        )}
+        {party.contact && (
+          <CallButton
+            matterId={clioMatterId(file.matterId)}
+            contactRef={party.contact.ref}
+            contactName={party.contact.title}
+            phone={String(party.contact.facts.phone ?? "")}
+          />
         )}
       </div>
 

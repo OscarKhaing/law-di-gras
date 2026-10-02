@@ -7,6 +7,7 @@
 
 import { z } from "zod";
 import { contactNamed, Evidence, overdue, type CaseFile, type CaseSummary } from "@/features/cases/schema";
+import type { CallLog } from "@/features/calls/schema";
 import type { PageNote } from "@/features/documents/schema";
 import type { ShareStatus } from "@/features/shares/schema";
 
@@ -141,6 +142,8 @@ export type SectionProps = {
   index: IndexUsage | null;
   /** What was read on each page of each document, by the document's ref; empty when none is indexed. */
   pages: Record<string, PageNote[]>;
+  /** Calls placed through Case Desk on this case, newest first. */
+  calls: CallLog[];
   /** Today as YYYY-MM-DD, fixed on the server so every section agrees. */
   today: string;
 };
