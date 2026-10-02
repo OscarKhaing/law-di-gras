@@ -76,23 +76,24 @@ async function findLive(token: unknown) {
 }
 
 /**
- * What a provider's link shows: the published update, and the replies and files already sent
- * through it. Null when the link is unknown, withdrawn or expired. Looking a share up records
- * nothing; the page records the open itself with recordOpen, after it has answered.
+ * What a provider's link shows: the published update, the replies and files already sent through
+ * it, and when the link was last opened before now. Null when the link is unknown, withdrawn or
+ * expired. Looking a share up records nothing; the page records the open itself with recordOpen,
+ * after it has answered, so the latest open found here is the office's previous visit.
  */
 export async function getShareByToken(
   token: string,
-): Promise<{ id: string; update: ProviderUpdate; replies: Reply[]; files: SentFile[] } | null> {
+): Promise<{ id: string; update: ProviderUpdate; replies: Reply[]; files: SentFile[]; lastOpenedAt: string | null } | null> {
   const share = await findLive(token);
   if (!share) return null;
-  const { data, error } = await supabase()
-    .from("share_events")
-    .select("kind, detail, at")
-    .eq("share_id", share.id)
-    .in("kind", ["replied", "uploaded"])
-    .order("at", { ascending: true });
-  if (error) throw error;
-  const rows = data ?? [];
+  const db = supabase();
+  const [events, lastOpen] = await Promise.all([
+    db.from("share_events").select("kind, detail, at").eq("share_id", share.id).in("kind", ["replied", "uploaded"]).order("at", { ascending: true }),
+    db.from("share_events").select("at").eq("share_id", share.id).eq("kind", "opened").order("at", { ascending: false }).limit(1).maybeSingle(),
+  ]);
+  if (events.error) throw events.error;
+  if (lastOpen.error) throw lastOpen.error;
+  const rows = events.data ?? [];
   return {
     id: share.id,
     update: share.payload,
@@ -102,6 +103,7 @@ export async function getShareByToken(
       .filter((row) => row.kind === "uploaded")
       .map(asFile)
       .map(({ lineId, name, bytes, at }) => ({ lineId, name, bytes, at })),
+    lastOpenedAt: (lastOpen.data?.at as string | undefined) ?? null,
   };
 }
 

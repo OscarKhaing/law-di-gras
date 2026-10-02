@@ -14,6 +14,8 @@ type Props = {
   preview?: boolean;
   /** The link's token, which a reply is sent with. Left out in a preview. */
   token?: string;
+  /** When this office last opened the link before now; null on its first visit. Left out in a preview. */
+  lastLooked?: string | null;
 };
 
 /**
@@ -22,7 +24,7 @@ type Props = {
  * It lays itself out by the width of its container, not of the window. Words taken from the
  * firm's update are in the serif face; the page's own words are in the sans.
  */
-export function ProviderUpdateView({ update, replies = [], files = [], preview = false, token }: Props) {
+export function ProviderUpdateView({ update, replies = [], files = [], preview = false, token, lastLooked = null }: Props) {
   const current = update.stages.indexOf(update.stage);
   const sections = PROVIDER_ORDER.map((section) => ({
     section,
@@ -72,10 +74,14 @@ export function ProviderUpdateView({ update, replies = [], files = [], preview =
           An update for <Words>{update.provider}</Words> from <Words>{update.firm}</Words>, about your patient
         </p>
         <h1 className="mt-1 font-heading text-3xl font-semibold tracking-tight text-balance @2xl:text-4xl">{update.patient}</h1>
+        {!preview && lastLooked && <SinceLastLooked publishedAt={update.publishedAt} lastLooked={lastLooked} />}
       </header>
 
       <section className="mt-8">
-        <h2 className="sr-only">The stage of the case</h2>
+        <h2 className="font-heading text-xl font-semibold">Is this case still alive?</h2>
+        <p className="mt-1 mb-2 leading-relaxed">
+          Yes, the firm is working on it. It last updated this page <LocalTime iso={update.publishedAt} style="sent" />.
+        </p>
         {update.stage ? (
           <>
             <div className="font-serif text-lg">
@@ -142,6 +148,7 @@ export function ProviderUpdateView({ update, replies = [], files = [], preview =
           An attorney at the firm checked this update before it was shared. Last updated{" "}
           <LocalTime iso={update.publishedAt} />. This link works until <LocalTime iso={update.expiresAt} style="date" />.
         </p>
+        <p>Keep this link: it always shows the firm&rsquo;s latest update, so there is no need to email to ask whether the case has moved.</p>
         {update.contactLine && (
           <p>
             Questions about this update: <ContactLine text={update.contactLine} />
@@ -149,6 +156,23 @@ export function ProviderUpdateView({ update, replies = [], files = [], preview =
         )}
       </footer>
     </article>
+  );
+}
+
+/** Whether the firm changed the page since the office last opened it: the answer to "tell me when the case moves". */
+function SinceLastLooked({ publishedAt, lastLooked }: { publishedAt: string; lastLooked: string }) {
+  if (Date.parse(publishedAt) > Date.parse(lastLooked)) {
+    return (
+      <p role="status" className="mt-4 border-l-2 border-marker bg-marker-soft px-3 py-2 text-sm leading-relaxed">
+        <span className="font-medium">Updated since you last looked</span> <LocalTime iso={lastLooked} style="sent" />. The
+        firm changed this page <LocalTime iso={publishedAt} style="sent" />.
+      </p>
+    );
+  }
+  return (
+    <p role="status" className="mt-4 text-sm leading-relaxed text-muted-foreground">
+      Nothing has changed since you last looked <LocalTime iso={lastLooked} style="sent" />.
+    </p>
   );
 }
 

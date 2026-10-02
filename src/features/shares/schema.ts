@@ -8,15 +8,19 @@ import { Evidence } from "@/features/cases/schema";
 export const SECTIONS = ["status", "coverage", "needs", "attendance", "on file", "other treatment", "movement"] as const;
 export type Section = (typeof SECTIONS)[number];
 
-/** The heading each section has, in the words of a provider's office. */
+/**
+ * The heading each section has: the question a provider's office asks, in the words billing and lien
+ * coordinators used when asked what they need. The provider's page reads as their questions answered,
+ * and the attorney's composer shows which question each line answers.
+ */
 export const SECTION_HEADINGS: Record<Section, string> = {
-  status: "Where the case stands",
-  coverage: "Insurance",
-  needs: "What we need from your office",
-  attendance: "Your patient's visits",
-  "on file": "What we have on file from you",
-  "other treatment": "Other treatment",
-  movement: "What has happened recently",
+  status: "Where does the case stand?",
+  coverage: "Is there coverage behind the case?",
+  needs: "What does the firm need from my office right now?",
+  attendance: "Is my patient still showing up to treatment?",
+  "on file": "What does the firm have from my office?",
+  "other treatment": "What other care is my patient getting?",
+  movement: "Has the case moved?",
 };
 
 /** The order on the provider's page: what the firm is asking for comes first. */

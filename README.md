@@ -34,6 +34,44 @@ Case Desk reads one personal injury matter live from Clio Manage and turns it in
 
 Clio is only read. Nothing is ever written to it.
 
+## In their own words
+
+The hosts shared what attorneys and treating providers said they need. Each request, and where Case
+Desk answers it:
+
+**Attorneys**
+
+| They said | Where it is answered |
+|---|---|
+| "Get me up to speed on a case and show me what's happened recently, without me having to ask anyone." | The brief opens on its bottom line, and "since you last opened" lists what is new. |
+| "What changed since I last opened this matter?" | "Since you last opened", counted for each reader from their own last visit (computed in code). |
+| "Out of three hundred entries, show me the ten that matter." | The ten moments, on a time strip of every dated entry in the file. |
+| "Sometimes I need to be up to speed in two minutes. Sometimes I need to dig into everything." | The top of the brief reads in about 90 seconds; longer lists fold to their first five rows, and the full file at the bottom can be filtered and searched. |
+| "If a date is on screen, I need to see where it came from." | Every line carries its sources, and code checks that each cited entry exists and that each quote really is in it. |
+| "I'd like to click on anything and open the note, document or email it came from." | Any source opens a panel beside the brief at that entry, or at the cited page of the document. |
+| "I want to see the client's picture as soon as I open their matter." | The header shows the client's photo, taken from the ID document in the file. |
+| "Somewhere in a 200-page scan are my client's primary injuries." | Every page of every document is indexed once, and each injury cites the document and page it is on. |
+| "When did anyone last actually talk to the client?" | "Last spoke to the client": the latest call the client took part in (computed in code). |
+| "Don't digest the whole case with AI again every time someone on my team opens it." | The brief is stored against the case file's fingerprint: opening a case calls no model and costs nothing. |
+| "What's overdue, what's coming, and what's waiting on someone else?" | "Needs attention": overdue and coming up from Clio's tasks and calendar, and what the firm is waiting on from others. |
+| "The two KPIs I care about most: what is the case worth, and what coverage sits behind it." | "Worth and coverage": every figure on one dollar scale, with each coverage limit drawn through the bars. |
+| "How much has the firm already spent on this case?" | The firm's own costs, under the money chart (computed in code from Clio's expenses). |
+| "What did we share with this provider, and has anyone in their office opened it?" | Each treating provider shows its latest update and how often it was opened; the update page lists every share with its opens and replies. |
+| "I want the treating doctors to see where the case is without handing over my whole file." | The provider's page reads only the lines published to its link; nothing else in the case can be reached from it. |
+| "Let me adjust what the provider sees before I send it." | Every drafted line has a switch and editable wording, beside a live preview of the provider's page; lines that are the attorney's call start switched off. |
+| "I want a secure way of sharing part of my case with the providers treating my client." | A random link of which only a hash is stored, that expires after 30 days and can be withdrawn at once. |
+
+**Treating providers.** Their page is headed by their own questions.
+
+| They said | Where it is answered |
+|---|---|
+| "Is this case even still alive? I've chased money on cases that settled a year ago." | "Is this case still alive?" opens the page, with the stage and when the firm last updated it. |
+| "Tell me when the case moves. I shouldn't have to email for that." | The link always shows the firm's latest update, and says whether anything changed since the office last looked. |
+| "What does the firm need from my office right now?" | First on the page, each request with a reply box; a reply reaches the firm as "from the provider, not yet in Clio". |
+| "I'm treating this patient on a lien. Is there coverage behind the case?" | "Is there coverage behind the case?", when the attorney chooses to share it. |
+| "I only ever see the records I sent. I'm treating this patient with one eye closed." | "What other care is my patient getting?", when the attorney chooses to share it. |
+| "Is my patient still showing up to treatment?" | The same question, answered when the attorney chooses to share it. |
+
 ## How it works
 
 ```
