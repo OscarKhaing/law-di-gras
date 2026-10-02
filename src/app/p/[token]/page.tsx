@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
+import { after } from "next/server";
 import { ProviderUpdateView } from "@/features/shares/provider-update-view";
-import { getShareByToken } from "@/features/shares/link";
+import { getShareByToken, recordOpen } from "@/features/shares/link";
 
 // The provider's page: what one treating provider's office sees through its link. It has no
 // sidebar, and it reads nothing but the update published to this token. getShareByToken is the
@@ -37,6 +39,11 @@ export default async function ProviderPage({ params }: PageProps<"/p/[token]">) 
   if (!share) {
     return <Plain heading="This link is no longer active">Ask the law firm that sent it to you for a new one.</Plain>;
   }
+
+  // The open is logged once the page has been sent, so the office never waits on it.
+  const { id } = share;
+  const userAgent = (await headers()).get("user-agent");
+  after(() => recordOpen(id, userAgent));
 
   return (
     <main className="mx-auto w-full max-w-3xl px-5 py-8 sm:px-8 sm:py-14">

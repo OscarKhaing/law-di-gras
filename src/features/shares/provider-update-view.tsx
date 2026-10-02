@@ -1,7 +1,7 @@
 import { StageTrack } from "@/features/cases/stage-track";
 import { LocalTime } from "./local-time";
 import { ReplyBox } from "./reply-box";
-import { SECTION_HEADINGS, SECTIONS, sectionOf, type ProviderUpdate, type Reply } from "./schema";
+import { PROVIDER_ORDER, SECTION_HEADINGS, sectionOf, type ProviderUpdate, type Reply } from "./schema";
 
 type Props = {
   update: ProviderUpdate;
@@ -21,7 +21,7 @@ type Props = {
  */
 export function ProviderUpdateView({ update, replies = [], preview = false, token }: Props) {
   const current = update.stages.indexOf(update.stage);
-  const sections = SECTIONS.map((section) => ({
+  const sections = PROVIDER_ORDER.map((section) => ({
     section,
     lines: update.lines.filter((line) => sectionOf(line.section) === section),
   })).filter(({ lines }) => lines.length > 0);
@@ -99,7 +99,8 @@ export function ProviderUpdateView({ update, replies = [], preview = false, toke
 
       <footer className="mt-6 space-y-1.5 text-sm leading-relaxed text-muted-foreground">
         <p>
-          Last updated <LocalTime iso={update.publishedAt} />. This link works until <LocalTime iso={update.expiresAt} style="date" />.
+          An attorney at the firm checked this update before it was shared. Last updated{" "}
+          <LocalTime iso={update.publishedAt} />. This link works until <LocalTime iso={update.expiresAt} style="date" />.
         </p>
         {update.contactLine && (
           <p>

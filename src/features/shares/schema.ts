@@ -8,16 +8,19 @@ import { Evidence } from "@/features/cases/schema";
 export const SECTIONS = ["status", "coverage", "needs", "attendance", "on file", "other treatment", "movement"] as const;
 export type Section = (typeof SECTIONS)[number];
 
-/** The heading each section has on the provider's page, in the order the page shows them. */
+/** The heading each section has, in the words of a provider's office. */
 export const SECTION_HEADINGS: Record<Section, string> = {
-  status: "Case status",
-  coverage: "Coverage",
+  status: "Where the case stands",
+  coverage: "Insurance",
   needs: "What we need from your office",
-  attendance: "Your patient's attendance",
-  "on file": "What we hold from your office",
+  attendance: "Your patient's visits",
+  "on file": "What we have on file from you",
   "other treatment": "Other treatment",
-  movement: "Recent movement",
+  movement: "What has happened recently",
 };
+
+/** The order on the provider's page: what the firm is asking for comes first. */
+export const PROVIDER_ORDER: readonly Section[] = ["needs", "status", "movement", "attendance", "on file", "coverage", "other treatment"];
 
 /** Sections where every line is the attorney's call, whatever the model said: they start switched off. */
 export const ATTORNEYS_CALL: readonly Section[] = ["coverage", "attendance", "other treatment"];

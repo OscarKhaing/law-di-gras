@@ -8,7 +8,7 @@
 import { getBrief } from "@/features/brief/server";
 import { getCaseFile, listCases } from "@/features/cases/server";
 import type { DraftLine } from "@/features/shares/schema";
-import { getShareByToken, replyToShare, ShareError } from "@/features/shares/link";
+import { getShareByToken, recordOpen, replyToShare, ShareError } from "@/features/shares/link";
 import { getDraft, previewMaterial, publishShare, revokeShare, sharesFor } from "@/features/shares/server";
 import { supabase } from "@/server/supabase";
 
@@ -101,6 +101,8 @@ async function main() {
 
     const opened = await getShareByToken(token);
     check("the link opens the update", opened !== null && opened.update.provider === provider.title);
+    // Looking the update up records nothing; the page records the open itself, after it has answered.
+    if (opened) await recordOpen(opened.id, "check-shares");
     check("only the lines switched on are in it", opened?.update.lines.map((item) => item.id).join() === "check-1,check-2");
     check("the stage and stages come from the case file", opened?.update.stage === file.stage && opened.update.stages.length === file.stages.length);
 
@@ -131,7 +133,7 @@ async function main() {
     check("a malformed token opens nothing", (await getShareByToken("../shares")) === null);
 
     const status = (await sharesFor(file.matterId)).find((share) => share.id === published.shareId);
-    check("the firm sees the opens and the reply", status?.opens === 3 && status.replies.length === 1 && status.lastOpenedAt !== null, `${status?.opens} opens`);
+    check("the firm sees the opens and the reply", status?.opens === 1 && status.replies.length === 1 && status.lastOpenedAt !== null, `${status?.opens} opens`);
 
     const revoked = await revokeShare(published.shareId);
     check("the link can be withdrawn", revoked.revoked);

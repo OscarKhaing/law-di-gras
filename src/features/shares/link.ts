@@ -53,20 +53,28 @@ async function findLive(token: unknown) {
 
 /**
  * What a provider's link shows: the published update and the replies already sent through it.
- * Null when the link is unknown, withdrawn or expired. Each call is recorded as the page being opened.
+ * Null when the link is unknown, withdrawn or expired. Looking a share up records nothing; the
+ * page records the open itself with recordOpen, after it has answered.
  */
-export async function getShareByToken(token: string): Promise<{ update: ProviderUpdate; replies: Reply[] } | null> {
+export async function getShareByToken(token: string): Promise<{ id: string; update: ProviderUpdate; replies: Reply[] } | null> {
   const share = await findLive(token);
   if (!share) return null;
-  const db = supabase();
-  const [opened, replies] = await Promise.all([
-    db.from("share_events").insert({ share_id: share.id, kind: "opened" }),
-    db.from("share_events").select("detail, at").eq("share_id", share.id).eq("kind", "replied").order("at", { ascending: true }),
-  ]);
-  // An open that could not be recorded should not keep the office from its update.
-  if (opened.error) console.error(`[shares] could not record an open: ${opened.error.message}`);
-  if (replies.error) throw replies.error;
-  return { update: share.payload, replies: (replies.data ?? []).map(asReply) };
+  const { data, error } = await supabase()
+    .from("share_events")
+    .select("detail, at")
+    .eq("share_id", share.id)
+    .eq("kind", "replied")
+    .order("at", { ascending: true });
+  if (error) throw error;
+  return { id: share.id, update: share.payload, replies: (data ?? []).map(asReply) };
+}
+
+/** Log that the provider's office opened its page. A failure is logged, never shown to the office. */
+export async function recordOpen(shareId: string, userAgent: string | null) {
+  const { error } = await supabase()
+    .from("share_events")
+    .insert({ share_id: shareId, kind: "opened", detail: { userAgent } });
+  if (error) console.error(`[shares] could not record an open of ${shareId}: ${error.message}`);
 }
 
 /** Store what a provider's office wrote back to one line of its update. Nothing is written to Clio. */
