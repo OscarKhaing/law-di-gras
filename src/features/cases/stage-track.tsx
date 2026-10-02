@@ -13,7 +13,7 @@ export function StageTrack({ stage, stages, named = false }: { stage: string; st
       <ol aria-label={label} className="grid gap-x-1" style={{ gridTemplateColumns: `repeat(${stages.length}, minmax(0, 1fr))` }}>
         {stages.map((name, index) => (
           <li key={name} aria-current={index === current ? "step" : undefined} className="min-w-0">
-            <span className={cn("block h-1.5 rounded-full", index <= current ? "bg-primary" : "bg-border")} />
+            <span className={cn("block h-1.5 rounded-full", index < current ? "bg-done" : index === current ? "bg-primary" : "bg-border")} />
             <span
               title={name}
               className={cn(
@@ -39,7 +39,7 @@ export function StageTrack({ stage, stages, named = false }: { stage: string; st
             <span
               key={name}
               title={name}
-              className={cn("h-1.5 w-4 rounded-full", index <= current ? "bg-primary" : "bg-border")}
+              className={cn("h-1.5 w-4 rounded-full", index < current ? "bg-done" : index === current ? "bg-primary" : "bg-border")}
             />
           ))}
         </div>

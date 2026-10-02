@@ -102,6 +102,15 @@ export const Brief = z.object({
 });
 export type Brief = z.infer<typeof Brief>;
 
+export const WEIGHTS = ["high", "medium", "low"] as const;
+export type Weight = (typeof WEIGHTS)[number];
+
+/** A red flag's weight is a free string from the model: anything other than high or low counts as medium. */
+export function weightOf(raw: string): Weight {
+  const weight = raw.trim().toLowerCase();
+  return weight === "high" || weight === "low" ? weight : "medium";
+}
+
 /** Evidence after the check in code: whether the ref exists and the quote really is in its source. */
 export type CheckedEvidence = { source: string; quote: string; found: boolean };
 

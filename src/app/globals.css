@@ -13,6 +13,15 @@
   --font-heading: var(--font-source-serif);
   --color-marker: var(--marker);
   --color-marker-soft: var(--marker-soft);
+  --color-urgent: var(--urgent);
+  --color-urgent-ink: var(--urgent-ink);
+  --color-urgent-soft: var(--urgent-soft);
+  --color-mild: var(--mild);
+  --color-mild-ink: var(--mild-ink);
+  --color-mild-soft: var(--mild-soft);
+  --color-done: var(--done);
+  --color-done-ink: var(--done-ink);
+  --color-done-soft: var(--done-soft);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -76,6 +85,17 @@
   /* Marker yellow: evidence quoted from a document, and anything a person must look at. */
   --marker: #ffe680;
   --marker-soft: #fff8d9;
+  /* Status, and only status: red is urgent, orange is worth a look soon, green is done or all clear.
+     Each has a solid colour for dots and bars, an ink for words, and a soft ground behind them. */
+  --urgent: #dc3b22;
+  --urgent-ink: #a8260f;
+  --urgent-soft: #fde9e5;
+  --mild: #e8830c;
+  --mild-ink: #8a4700;
+  --mild-soft: #fdead3;
+  --done: #2e9d5b;
+  --done-ink: #1a6b3c;
+  --done-soft: #e1f4e8;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -108,6 +128,15 @@
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
+  --urgent: #f0634a;
+  --urgent-ink: #ffa597;
+  --urgent-soft: rgb(240 99 74 / 16%);
+  --mild: #f29a3d;
+  --mild-ink: #ffc58a;
+  --mild-soft: rgb(242 154 61 / 14%);
+  --done: #4cc282;
+  --done-ink: #95e2b8;
+  --done-soft: rgb(76 194 130 / 14%);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);

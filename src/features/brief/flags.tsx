@@ -3,19 +3,10 @@
 import { byRef, parseSource } from "@/features/cases/schema";
 import { cn } from "@/lib/utils";
 import { useFold } from "./fold";
-import type { SectionProps } from "./schema";
+import { WEIGHTS, weightOf, type SectionProps, type Weight } from "./schema";
 import { SourceLinks } from "./source-panel";
 
-const WEIGHTS = ["high", "medium", "low"] as const;
-type Weight = (typeof WEIGHTS)[number];
-
 const LABEL: Record<Weight, string> = { high: "High", medium: "Medium", low: "Low" };
-
-/** The model's weight is a free string: anything other than high or low counts as medium. */
-function weightOf(raw: string): Weight {
-  const weight = raw.trim().toLowerCase();
-  return weight === "high" || weight === "low" ? weight : "medium";
-}
 
 /**
  * Red flags: weaknesses, contradictions inside the file and things nobody has done, heaviest first.

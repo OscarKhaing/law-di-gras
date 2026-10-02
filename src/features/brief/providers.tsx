@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
+import { StatusPill } from "@/components/status";
 import { byRef, parseSource, shortDate, type CaseFile, type Entry, clioMatterId } from "@/features/cases/schema";
 import type { ShareStatus } from "@/features/shares/schema";
 import { cn } from "@/lib/utils";
@@ -154,6 +155,7 @@ function ProviderRow({
         ) : (
           <p className="text-xs text-muted-foreground">An update needs this contact in Clio first.</p>
         )}
+        <ShareStatusPill share={mine[0]} today={today} />
         <p className={cn("text-xs leading-4", mine.length === 0 ? "text-muted-foreground" : "text-foreground")}>
           {shareLine(mine[0], today)}
         </p>
@@ -183,6 +185,13 @@ function Who({ person, entry }: { person: Person; entry: Entry | null }) {
       {role && <p className="text-xs leading-5 text-muted-foreground first-letter:uppercase">{role}</p>}
     </div>
   );
+}
+
+/** Where the latest update stands, at a glance: opened is green, waiting to be opened is amber. */
+function ShareStatusPill({ share, today }: { share: ShareStatus | undefined; today: string }) {
+  if (!share) return <StatusPill tone="neutral">Not shared</StatusPill>;
+  if (share.revoked || share.expiresAt.slice(0, 10) < today) return <StatusPill tone="neutral">Link closed</StatusPill>;
+  return share.opens > 0 ? <StatusPill tone="done">Opened</StatusPill> : <StatusPill tone="mild">Not opened yet</StatusPill>;
 }
 
 /** Something the firm is still waiting for, marked because a person has to chase it. */

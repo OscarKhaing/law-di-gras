@@ -122,7 +122,9 @@ function NumberMark({ number, selected }: { number: number; selected: boolean })
  * with the moments the brief picked numbered above it, and the same moments as a ledger below.
  * Selecting a number on the strip marks its row in the ledger, and the other way round.
  */
-export function Moments({ file, stored, today }: SectionProps) {
+export function Moments({ file, stored, today, compact = false }: SectionProps & { /** The strip alone, for the overview; the ledger is on the Timeline tab. */ compact?: boolean }) {
+  // Both forms are on the page at once (tabs stay mounted), so each needs its own heading id.
+  const headingId = compact ? "moments-overview" : "moments";
   const { openRef } = useSource();
   const [range, setRange] = useState<RangeId>("all");
   const [selected, setSelected] = useState<number | null>(null);
@@ -250,10 +252,10 @@ export function Moments({ file, stored, today }: SectionProps) {
     ".";
 
   return (
-    <section aria-labelledby="moments" className="space-y-3">
+    <section aria-labelledby={headingId} className="space-y-3">
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
         <div className="space-y-1">
-          <h2 id="moments" className="font-heading text-xl font-semibold tracking-tight">
+          <h2 id={headingId} className="font-heading text-xl font-semibold tracking-tight">
             {total > 0 ? `The ${inWords(total)} that matter` : "The moments that matter"}
           </h2>
           <p className="text-sm text-muted-foreground">
@@ -448,11 +450,11 @@ export function Moments({ file, stored, today }: SectionProps) {
         </div>
       )}
 
-      {total === 0 ? (
+      {compact && selected === null ? null : total === 0 ? (
         <p className="border-y py-3 text-sm text-muted-foreground">The brief picks out no moments for this case.</p>
       ) : (
         <ol className="divide-y border-y">
-          {whole.moments.map((moment) => {
+          {whole.moments.filter((moment) => !compact || moment.number === selected).map((moment) => {
             const isSelected = moment.number === selected;
             const lane = moment.lane.trim().toLowerCase();
             return (

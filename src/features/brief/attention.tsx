@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { StatusDot, StatusPill, type Tone } from "@/components/status";
 import { overdue, shortDate, upcoming } from "@/features/cases/schema";
 import { KIND_WORD, addDays, daysBetween, fromToday, span } from "@/features/cases/words";
 import { useFold } from "./fold";
@@ -8,6 +9,8 @@ import type { SectionProps } from "./schema";
 import { SourceLinks, useSource } from "./source-panel";
 
 const AHEAD = 30;
+/** Within this many days a date is pressing. */
+const SOON = 7;
 
 const openClass =
   "max-w-full cursor-pointer truncate rounded-sm text-left align-bottom font-serif text-[15px] leading-6 underline decoration-input underline-offset-2 outline-none hover:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring/50";
@@ -15,11 +18,14 @@ const openClass =
 /** One of the four ledgers: its name and count, then one line per item, the first five until asked. */
 function Ledger<T>({
   label,
+  tone,
   items,
   empty,
   render,
 }: {
   label: string;
+  /** How pressing the ledger is when it has anything in it; an empty one is all clear. */
+  tone: Tone;
   items: T[];
   empty: string;
   render: (item: T) => ReactNode;
@@ -27,7 +33,8 @@ function Ledger<T>({
   const { shown, control } = useFold(items);
   return (
     <div className="min-w-0 border-t py-2.5">
-      <h3 className="text-sm font-medium">
+      <h3 className="flex items-center gap-2 text-sm font-medium">
+        <StatusDot tone={items.length > 0 ? tone : "done"} />
         {label}
         {items.length > 0 && <span className="ml-1.5 font-normal text-muted-foreground tabular-nums">{items.length}</span>}
       </h3>
@@ -66,6 +73,7 @@ export function Attention({ file, stored, today }: SectionProps) {
         <div className="min-w-0 border-b">
         <Ledger
           label="Overdue"
+          tone="urgent"
           items={late}
           empty="No open task is past its due date."
           render={(entry) => (
@@ -74,13 +82,14 @@ export function Attention({ file, stored, today }: SectionProps) {
                 {entry.title || "Untitled task"}
               </button>
               <span className={asideClass}>
-                <span className="bg-marker px-1 text-foreground">{span(daysBetween(entry.date, today))} late</span>
+                <StatusPill tone="urgent">{span(daysBetween(entry.date, today))} late</StatusPill>
               </span>
             </div>
           )}
         />
         <Ledger
           label="Waiting on others"
+          tone="mild"
           items={brief.waiting}
           empty="The file shows nothing the firm is waiting on from anyone else."
           render={(item) => {
@@ -101,6 +110,7 @@ export function Attention({ file, stored, today }: SectionProps) {
         <div className="min-w-0 border-b max-lg:border-t-0">
         <Ledger
           label={`Coming up in ${AHEAD} days`}
+          tone="mild"
           items={coming}
           empty={`No task is due and nothing is on the calendar in the next ${AHEAD} days.`}
           render={(entry) => (
@@ -109,13 +119,15 @@ export function Attention({ file, stored, today }: SectionProps) {
                 {entry.title || `Untitled ${KIND_WORD[entry.kind]}`}
               </button>
               <span className={asideClass}>
-                {entry.kind === "task" ? "due" : "calendar"} {shortDate(entry.date)}
+                {entry.kind === "task" ? "due" : "calendar"} {shortDate(entry.date)}{" "}
+                <StatusPill tone={daysBetween(today, entry.date) <= SOON ? "mild" : "neutral"}>{fromToday(entry.date, today)}</StatusPill>
               </span>
             </div>
           )}
         />
         <Ledger
           label="To decide"
+          tone="mild"
           items={brief.decisions}
           empty="The file shows no decision waiting on the attorney."
           render={(item) => (

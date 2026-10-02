@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { StatusPill } from "@/components/status";
 import { buttonVariants } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { LocalTime } from "@/features/cases/local-time";
@@ -59,7 +60,7 @@ export default async function CasesPage() {
               <TableHead className="pl-0 text-muted-foreground">Client</TableHead>
               <TableHead className="text-muted-foreground">Matter</TableHead>
               <TableHead className="text-muted-foreground">Stage</TableHead>
-              <TableHead className="pr-0 text-right text-muted-foreground">Read from Clio</TableHead>
+              <TableHead className="pr-0 text-right text-muted-foreground">Status</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -81,8 +82,17 @@ export default async function CasesPage() {
                 <TableCell>
                   <StageTrack stage={matter.stage} stages={matter.stages} />
                 </TableCell>
-                <TableCell className="pr-0 text-right text-muted-foreground">
-                  {matter.syncedAt ? <LocalTime iso={matter.syncedAt} /> : "Not read yet"}
+                <TableCell className="pr-0 text-right">
+                  {matter.syncedAt ? (
+                    <span className="inline-flex flex-col items-end gap-1">
+                      <StatusPill tone="done">Read from Clio</StatusPill>
+                      <span className="text-xs text-muted-foreground">
+                        <LocalTime iso={matter.syncedAt} />
+                      </span>
+                    </span>
+                  ) : (
+                    <StatusPill tone="mild">Not read yet</StatusPill>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
