@@ -87,25 +87,6 @@ export function Attention({ file, stored, today }: SectionProps) {
             </div>
           )}
         />
-        <Ledger
-          label="Waiting on others"
-          tone="mild"
-          items={brief.waiting}
-          empty="The file shows nothing the firm is waiting on from anyone else."
-          render={(item) => {
-            const waited = shortDate(item.since) ? span(daysBetween(item.since, today)) : "";
-            const facts = [waited, item.asked > 0 && `asked ${item.asked === 1 ? "once" : `${item.asked} times`}`].filter(Boolean);
-            return (
-              <p className="text-sm leading-5">
-                <span className="font-medium">{item.on}</span>
-                {item.on && item.what ? ": " : ""}
-                {item.what}{" "}
-                {facts.length > 0 && <span className={asideClass}>waiting {facts.join(", ")} </span>}
-                <SourceLinks evidence={item.evidence} />
-              </p>
-            );
-          }}
-        />
         </div>
         <div className="min-w-0 border-b max-lg:border-t-0">
         <Ledger

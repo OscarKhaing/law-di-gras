@@ -7,6 +7,7 @@
 
 import { z } from "zod";
 import { contactNamed, Evidence, overdue, type CaseFile, type CaseSummary } from "@/features/cases/schema";
+import type { PageNote } from "@/features/documents/schema";
 import type { ShareStatus } from "@/features/shares/schema";
 
 export const MONEY_KINDS = ["value", "coverage", "specials", "wage loss", "lien", "offer", "demand", "other"] as const;
@@ -138,6 +139,8 @@ export type SectionProps = {
   shares: ShareStatus[];
   /** What indexing the documents cost; null when none has been indexed. */
   index: IndexUsage | null;
+  /** What was read on each page of each document, by the document's ref; empty when none is indexed. */
+  pages: Record<string, PageNote[]>;
   /** Today as YYYY-MM-DD, fixed on the server so every section agrees. */
   today: string;
 };

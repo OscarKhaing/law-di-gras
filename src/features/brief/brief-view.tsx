@@ -4,11 +4,14 @@ import { StatusPill } from "@/components/status";
 import { overdue, shortDate, upcoming, type CaseFile } from "@/features/cases/schema";
 import { addDays, daysBetween } from "@/features/cases/words";
 import type { ShareStatus } from "@/features/shares/schema";
+import type { PageNote } from "@/features/documents/schema";
 import { Attention } from "./attention";
+import { Bills } from "./bills";
 import { CaseTabs, StatusTiles, type CaseTab } from "./case-tabs";
 import { Flags } from "./flags";
 import { FullFile } from "./full-file";
 import { Glance } from "./glance";
+import { Chase } from "./chase";
 import { CaseHeader } from "./header";
 import { HowMade } from "./how-made";
 import { Injuries } from "./injuries";
@@ -16,6 +19,8 @@ import { Moments } from "./moments";
 import { Money } from "./money";
 import { Providers } from "./providers";
 import { ReadCase } from "./read-case";
+import { Settlement } from "./settlement";
+import { Treatment } from "./treatment";
 import { weightOf, type IndexUsage, type SectionProps, type StoredBrief } from "./schema";
 import { SinceStrip } from "./since-strip";
 import { SourceLinks, SourceProvider } from "./source-panel";
@@ -37,6 +42,7 @@ export function BriefView({
   stored,
   shares,
   index,
+  pages,
   today,
   photoUrl,
 }: {
@@ -44,6 +50,7 @@ export function BriefView({
   stored: StoredBrief | null;
   shares: ShareStatus[];
   index: IndexUsage | null;
+  pages: Record<string, PageNote[]>;
   today: string;
   photoUrl: string | null;
 }) {
@@ -62,7 +69,7 @@ export function BriefView({
     );
   }
 
-  const section: SectionProps = { file, stored, shares, index, today };
+  const section: SectionProps = { file, stored, shares, index, pages, today };
   const { brief } = stored;
   const late = overdue(file, today);
   const thisWeek = upcoming(file, today, addDays(today, WEEK));
@@ -170,9 +177,14 @@ export function BriefView({
         { tone: "mild", count: thisWeek.length, label: "due this week" },
       ],
       content: (
-        <Panel>
-          <Attention {...section} />
-        </Panel>
+        <div className="space-y-6">
+          <Panel>
+            <Chase {...section} />
+          </Panel>
+          <Panel>
+            <Attention {...section} />
+          </Panel>
+        </div>
       ),
     },
     {
@@ -195,9 +207,17 @@ export function BriefView({
       startsGroup: true,
       icon: <Banknote />,
       content: (
-        <Panel>
-          <Money {...section} />
-        </Panel>
+        <div className="space-y-6">
+          <Panel>
+            <Settlement {...section} />
+          </Panel>
+          <Panel>
+            <Bills {...section} />
+          </Panel>
+          <Panel>
+            <Money {...section} />
+          </Panel>
+        </div>
       ),
     },
     {
@@ -217,6 +237,9 @@ export function BriefView({
       badges: [{ tone: "mild", count: owedRecords, label: "providers owe the firm records" }],
       content: (
         <div className="space-y-6">
+          <Panel>
+            <Treatment {...section} />
+          </Panel>
           <Panel>
             <Injuries {...section} />
           </Panel>

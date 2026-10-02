@@ -74,6 +74,9 @@ export function CaseHeader({
         >
           Open this matter in Clio
         </a>
+        <a href={`/handoff/${file.matterId}`} target="_blank" rel="noreferrer" className="block text-xs underline underline-offset-2 hover:text-foreground">
+          Print a handoff sheet
+        </a>
         {!isFreshRead(file.matterId) && <FreshReadLink matterId={file.matterId} />}
       </div>
     </header>

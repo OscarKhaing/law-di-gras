@@ -30,25 +30,26 @@ nothing but the update published to its link.
 
 1. **Cases (`/`).** Cases read from Clio. A row opens the case. States: Clio not connected, none read
    yet, error.
-2. **The brief (`/cases/[id]`),** read top to bottom: header (client, matter number, stage track from
-   Clio's stages, "Read from Clio at …", "Check Clio"); the bottom line in the serif face; "since you
-   last opened" as a marker strip (computed in code); at a glance; worth and coverage (bars on one
-   scale, the coverage limit as a marker line through them, the firm's own spend underneath); the ten
-   moments that matter on a time strip with a ledger below; needs attention (overdue and coming up
-   from tasks and calendar in code; waiting on others and to decide from the model); red flags;
-   injuries; treating providers (with "Prepare update" and whether a shared update was opened); the
-   full file (every entry, filter by kind, search); how this brief was made (models, cost, when).
-   Selecting any line opens the **source panel** on the right: the note, email, call, task or
-   calendar entry with the quoted passage marked, or the document at the cited page.
-   **The brief must read in 90 seconds.** Everything above the full file should fit in about three
-   screens at 1440x900 (roughly 2,700 px), not ten. So: sources are small text links after a
-   statement, and the quoted passage is shown in the source panel when one is opened, not inline.
-   Quotes are shown inline in only two places, where the passage is the point: red flags (the
-   passages that disagree) and the moment that is selected on the time strip. No fact appears twice
-   (the incident is in the header, so "At a glance" does not repeat it). A ledger with more than
-   five rows shows its first five and "Show all N". "Since you last opened" shows a count per kind
-   and the five newest items, with the rest on demand. Others on the case, and how the brief was
-   made, are closed by default.
+2. **The brief (`/cases/[id]`).** A side column holds the client card (photo, matter, stage, limitation
+   date, overdue count, "Check Clio", a link to the matter in Clio) and a menu of the case's parts
+   with coloured counts; the open part is beside it and is kept in the address (`?tab=money`). Parts
+   stay mounted, so a search or a selection survives switching. Built in `brief-view.tsx` on
+   `CaseTabs` (`case-tabs.tsx`).
+   - **Overview** is the ninety-second read on its own, so a reader new to the case never has to know
+     which part to open: status counts, the bottom line, what happened, what is new since the reader
+     last opened, worth against coverage, the time strip of the ten moments, at a glance.
+   - **To do:** the chase list (everyone the firm is waiting on, with a drafted follow-up), overdue,
+     coming up, to decide.
+   - **Red flags:** contradictions and holes, with the passages that disagree.
+   - **Money:** the settlement simulator, bills by provider, worth and coverage.
+   - **Timeline:** the ten moments on a strip of every entry.
+   - **Medical:** the treatment timeline, injuries, treating providers (with "Prepare update").
+   - **Full file:** every entry, with filters and search. **How it was made:** models, cost, when.
+   Sources are small text links after a statement; the quoted passage is shown in the **source
+   panel** when one is opened. Quotes are inline only in red flags and for the selected moment.
+   A ledger with more than five rows shows five and "Show all N" (`fold.tsx`). No fact appears twice
+   on one part. The app's own sidebar lists the worklists (overdue, waiting on a provider, and so
+   on), each narrowing the case list.
 3. **Provider update (`/cases/[id]/providers/[contact]`).** Left: drafted lines grouped by section,
    each with a switch, editable wording and its source; lines that are the attorney's call start
    switched off. Right: the provider's page exactly as it will look. Main action: "Publish and copy
@@ -163,11 +164,15 @@ adding screens. Tokens live in `src/app/globals.css`, fonts in `src/app/layout.t
 - **Two typefaces, each with a meaning.** Source Serif 4 (`font-heading`, `font-serif`) is for page
   headings and for words taken from a document: values and quotes. IBM Plex Sans (the default) is
   the app speaking. A reader should be able to tell which is which from the face alone.
-- **Colour has three jobs and no others.** Ledger green (`primary`) is the user's own action and
-  approval. Marker yellow (`marker`, `marker-soft`) is evidence and anything a person must look at.
-  Red (`destructive`) means something failed. Everything else is ink on a cool off-white.
-- **Ledgers, not cards.** Lists are rows divided by hairlines with the label in a left column, as in
-  `review-panel.tsx` and the case table. Do not wrap each item in its own rounded box.
+- **Colour has four jobs and no others.** Ledger green (`primary`) is the user's own action and
+  approval. Marker yellow (`marker`, `marker-soft`) is quoted evidence, and only that. Status
+  (`urgent` red, `mild` orange, `done` blue-green, through `StatusPill`, `StatusIcon` and `CountBadge`
+  in `src/components/status.tsx`) says how pressing something is, always with words or an icon beside
+  the colour. Red (`destructive`) means something in the app failed. Everything else is ink on a cool
+  off-white.
+- **Cards hold a part; ledgers hold its rows.** Each part of a case sits on one card (`Panel` in
+  `src/components/panel.tsx`). Inside a card, lists are rows divided by hairlines with the label in a
+  left column. Do not put each row in its own box.
 - **Structure must carry information.** The stage track on a case is there because the stages really
   are a sequence. Do not add numbering, labels above headings, or dividers that encode nothing.
 - **One piece of motion per screen**, and only in answer to something the user did: the ledger rows
