@@ -238,7 +238,13 @@ export function BriefView({
   return (
     <SourceProvider file={file}>
       <CaseTabs
-        side={<CaseHeader file={file} photoUrl={photoUrl} vitals={vitals} />}
+        side={
+          <>
+            <CaseHeader file={file} photoUrl={photoUrl} vitals={vitals} />
+            {/* The app's own sidebar counts cases; this menu counts things inside this one. */}
+            <p className="px-1 pt-1 text-xs font-medium text-muted-foreground">In this case</p>
+          </>
+        }
         notice={!stored.current && <ReadCase matterId={file.matterId} situation="stale" />}
         tabs={tabs}
       />
