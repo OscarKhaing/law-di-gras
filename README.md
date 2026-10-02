@@ -19,6 +19,14 @@ Case Desk reads one personal injury matter live from Clio Manage and turns it in
     holds no records for.
   - *Worklists.* The sidebar says which cases have overdue tasks, are waiting on a provider or the
     other side, are near their policy limits, or have a limitation date coming.
+  - *Ask.* A question typed or spoken ("what happened since I last had this file?") is answered in
+    a few sentences with its sources, and read aloud. The entries and pages that bear on it are
+    picked in code; one fast model call writes the answer; the same check as the brief verifies it.
+  - *Time on desk.* Contingency firms keep no time sheet, so the hours are rebuilt from the record by
+    a stated rule the firm can change, by person, by kind of work and by phase, and valued at a
+    typed hourly rate. A call placed through Case Desk counts its real length.
+  - *Calls.* "Call" beside a contact rings them from the browser through Twilio. The carrier's
+    duration, both sides' words and a short summary are kept on the case.
   - *Reading as* attorney or case manager reorders the case; a handoff sheet prints it on a page.
 - **An update for a treating provider.** The attorney checks a drafted update line by line, decides
   what leaves the firm, and publishes it to a private link. The firm sees when the provider's office
@@ -92,7 +100,9 @@ is on with no policies, so only the server's secret key can read them.
 | `document_digests` | The page index, one row per part of a document |
 | `briefs` | The brief written for each state of a case |
 | `visits` | When each reader opened a case, for "since you last opened" |
-| `shares`, `share_events` | Updates published to providers; opens and replies |
+| `shares`, `share_events` | Updates published to providers; opens, replies and attached files |
+| `calls` | Calls placed through Case Desk: the carrier's duration, the transcript, a summary |
+| `case_extras` | Things worked out from a case and kept, such as the date each stage began |
 
 Copies of the matter's documents are in a private Storage bucket and are shown through signed URLs
 that expire after an hour.
@@ -103,7 +113,9 @@ that expire after an hour.
 |---|---|---|
 | Page index of the documents | `claude-haiku-4-5` | Once per document version |
 | The brief | `claude-opus-5-5` | Once per state of the case in Clio |
-| Draft of a provider update | `claude-sonnet-5-5` | When the attorney asks for one |
+| Draft of a provider update or a follow-up | `claude-sonnet-5-5` | When the attorney asks for one |
+| The date each stage began, for time by phase | `claude-sonnet-5-5` | Once per state of the case, on request |
+| An answer to "Ask", and a call's summary | `claude-haiku-4-5` | Each question; each call |
 
 Measured on the hackathon matter (218 entries, 31 documents, 361 pages):
 
@@ -121,7 +133,7 @@ stored with each step.
 
 ```bash
 pnpm install
-cp .env.example .env.local     # Anthropic key, Supabase URL and secret key, Clio app ID and secret
+cp .env.example .env.local     # Anthropic key, Supabase URL and secret key, Clio app ID and secret, Twilio (optional)
 ```
 
 1. Create a Supabase project, run [`supabase/schema.sql`](supabase/schema.sql) in its SQL editor, and
@@ -155,4 +167,10 @@ Quote highlighting in documents relies on desktop Chrome's built-in PDF viewer.
 - The settlement breakdown is an illustration: the fee percentage is typed by the attorney because
   the file holds no fee agreement, and provider charges are what was billed, not balances owed.
 - A drafted follow-up is copied by the user into their own email; the app sends nothing.
+- Time on desk is an estimate rebuilt from the record, not a record kept at the time. Its default
+  minutes are our assumptions; only calls placed through Case Desk are measured.
+- Calls ring only the numbers in `TWILIO_ALLOWED_NUMBERS` when that is set, because a sample
+  matter's phone numbers are made up. The person rung is not told the call is transcribed; a firm
+  would add that notice.
+- Voice questions use the browser's own speech recognition, so they need desktop Chrome.
 - The provider is not notified when an update changes; they see it the next time they open the link.

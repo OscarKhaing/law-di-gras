@@ -44,6 +44,27 @@ and 18,951 out ($0.74), $1.77 in all.
 | Rewriting the brief after a change (documents are not read again) | about 2 min 30 s | about $0.80 (90,517 in, 22,443 out) |
 | Drafting an update for one provider (claude-sonnet-5-5) | about 20 s | not measured; a few cents |
 
+## Added in the afternoon
+
+| What | Model | Time | Cost |
+|---|---|---|---|
+| A question to "Ask" (about 8,000 tokens of the file retrieved in code) | claude-haiku-4-5 | 1.6 to 7.1 s | about 1 cent |
+| The date each stage began, for time by phase | claude-sonnet-5-5 | 16 s once, then kept | a few cents |
+| A drafted follow-up email | claude-sonnet-5-5 | 10 to 14 s | a few cents |
+
+Four test questions, each checked against the file: the coverage limit (correct, 4.8 s), who the
+firm is waiting on (correct, 7.1 s), when anyone last spoke to the client (correct, 2.5 s), and one
+the file cannot answer ("The file does not say.", 1.6 s).
+
+Time on desk on this matter, by the default rule: 20.7 hours across 142 pieces of work, all
+estimated until the first call was placed; documents reviewed 7.9 h, notes 4.6 h, emails sent 3.0 h,
+emails read 2.6 h, calls logged in Clio 2.6 h. By phase: intake 1.2 h, treatment 5.9 h, demand 0.7 h,
+negotiation 0.1 h, litigation 12.8 h.
+
+Calls placed through the app on the day: one of 7 seconds and one of 13 seconds, the second with
+four transcribed lines and a summary. Treatment on record: 175 dated visits across 9 providers, and
+778 days for which the firm holds no dated record.
+
 ## How far the brief can be trusted
 
 Every statement in the brief must cite the entries it rests on, and code checks each one.
