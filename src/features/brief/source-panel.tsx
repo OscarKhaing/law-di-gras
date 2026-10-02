@@ -9,6 +9,8 @@ import { byRef, parseSource, shortDate, type CaseFile, type Entry } from "@/feat
 import { KIND_WORD, dollars } from "@/features/cases/words";
 import type { DocumentSource } from "@/features/documents/schema";
 import { SourceViewer } from "@/features/documents/source-viewer";
+import { ExternalLinkIcon } from "lucide-react";
+import { clioMatterUrl } from "@/lib/clio-url";
 import { postJson } from "@/lib/fetch-json";
 import { cn } from "@/lib/utils";
 
@@ -28,12 +30,18 @@ type SourceApi = {
 };
 
 type SourceState = SourceApi & {
+  matterId: number;
   entries: Map<string, Entry>;
   /** The year the case was read in: dates in another year are written with theirs. */
   year: string;
 };
 
-const SourceContext = createContext<SourceState>({ open: () => {}, openRef: () => {}, entries: new Map(), year: "" });
+const SourceContext = createContext<SourceState>({ open: () => {}, openRef: () => {}, matterId: 0, entries: new Map(), year: "" });
+
+/** The case file's entries by ref, for anything that describes a source before it is opened. */
+export function useSourceEntries() {
+  return useContext(SourceContext).entries;
+}
 
 export function useSource(): SourceApi {
   const { open, openRef } = useContext(SourceContext);
@@ -260,7 +268,8 @@ export function SourceProvider({ file, children }: { file: CaseFile; children: R
     setIsOpen(true);
   }, []);
   const openRef = useCallback((ref: string) => open({ source: ref, quote: "" }), [open]);
-  const value = useMemo(() => ({ open, openRef, entries, year }), [open, openRef, entries, year]);
+  const matterId = file.matterId;
+  const value = useMemo(() => ({ open, openRef, matterId, entries, year }), [open, openRef, matterId, entries, year]);
 
   const target = shown ? parseSource(shown.evidence.source) : null;
   const entry = target ? entries.get(target.ref) : undefined;
@@ -297,6 +306,17 @@ export function SourceProvider({ file, children }: { file: CaseFile; children: R
               nonce={shown.nonce}
             />
           )}
+          <div className="mt-auto border-t px-4 py-3 text-sm">
+            <a
+              href={clioMatterUrl(file.matterId)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-sm text-primary underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <ExternalLinkIcon className="size-3.5" />
+              Open the matter in Clio
+            </a>
+          </div>
         </SheetContent>
       </Sheet>
     </SourceContext.Provider>

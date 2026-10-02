@@ -34,11 +34,16 @@ export default async function ProviderPage({ params }: PageProps<"/p/[token]">) 
 
   // Unknown, withdrawn and expired links all get the same page, which says nothing about any case.
   if (!share) {
-    return <Plain heading="This link is no longer active">Ask the law firm that sent it to you for a new one.</Plain>;
+    return (
+      <Plain heading="This link has expired">
+        Case updates are shared for a limited time and can be withdrawn by the firm. Call or email the law firm that sent
+        you the link and ask for a new one.
+      </Plain>
+    );
   }
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-5 py-8 sm:px-8 sm:py-14">
+    <main className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-8 sm:py-14">
       <ProviderUpdateView update={share.update} replies={share.replies} token={token} />
     </main>
   );
@@ -46,9 +51,9 @@ export default async function ProviderPage({ params }: PageProps<"/p/[token]">) 
 
 function Plain({ heading, children }: { heading: string; children: React.ReactNode }) {
   return (
-    <main className="mx-auto w-full max-w-xl px-5 py-12 sm:px-8 sm:py-20">
-      <h1 className="font-heading text-2xl font-semibold tracking-tight">{heading}</h1>
-      <p className="mt-2 leading-relaxed text-muted-foreground">{children}</p>
+    <main className="mx-auto flex w-full max-w-xl flex-col gap-2 px-4 py-12 sm:px-8 sm:py-20">
+      <h1 className="text-2xl font-semibold tracking-tight">{heading}</h1>
+      <p className="leading-relaxed text-muted-foreground">{children}</p>
     </main>
   );
 }

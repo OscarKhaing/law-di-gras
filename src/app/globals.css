@@ -7,10 +7,14 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  /* Sans is the interface speaking; serif is headings and words taken from a document. */
-  --font-sans: var(--font-plex-sans);
-  --font-serif: var(--font-source-serif);
-  --font-heading: var(--font-source-serif);
+  /* Two faces: Inter for the interface and prose, Geist Mono for every date, amount and number. */
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-geist-mono);
+  --font-serif: var(--font-inter);
+  --font-heading: var(--font-inter);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
   --color-marker: var(--marker);
   --color-marker-soft: var(--marker-soft);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -51,79 +55,73 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/*
+ * Five colours and nothing else, each with one job:
+ *   ink blue (primary)         the firm's own actions and the citation chips
+ *   paper, surface, ink        background, cards and muted surfaces, text
+ *   amber to red (warning)     overdue items, the SOL, and money past the coverage limits; nothing else
+ * Every other token below is mixed from these.
+ */
 :root {
-  /* Canvas, paper and ink. */
-  --background: #f6f7f4;
-  --foreground: #16201b;
-  --card: #ffffff;
-  --card-foreground: #16201b;
-  --popover: #ffffff;
-  --popover-foreground: #16201b;
-  /* Ledger green: the user's own actions (primary buttons, the current page, approval). */
-  --primary: #1d4b3a;
-  --primary-foreground: #ffffff;
-  --secondary: #e6ece6;
-  --secondary-foreground: #16201b;
-  --muted: #eef1ec;
-  --muted-foreground: #59655e;
-  --accent: #e6ece6;
-  --accent-foreground: #16201b;
-  /* Red: something failed. Nothing else. */
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: #dce1da;
-  --input: #c9d1c8;
-  --ring: #1d4b3a;
-  /* Marker yellow: evidence quoted from a document, and anything a person must look at. */
-  --marker: #ffe680;
-  --marker-soft: #fff8d9;
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.375rem;
-  --sidebar: #ffffff;
-  --sidebar-foreground: #16201b;
-  --sidebar-primary: #1d4b3a;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #e6ece6;
-  --sidebar-accent-foreground: #1d4b3a;
-  --sidebar-border: #dce1da;
-  --sidebar-ring: #1d4b3a;
+  --c-primary: oklch(0.42 0.09 255);
+  --c-paper: oklch(0.985 0.003 255);
+  --c-surface: oklch(1 0 0);
+  --c-ink: oklch(0.22 0.02 255);
+  --c-warning: oklch(0.62 0.15 55);
+
+  --background: var(--c-paper);
+  --foreground: var(--c-ink);
+  --card: var(--c-surface);
+  --card-foreground: var(--c-ink);
+  --popover: var(--c-surface);
+  --popover-foreground: var(--c-ink);
+  --primary: var(--c-primary);
+  --primary-foreground: var(--c-surface);
+  --secondary: color-mix(in oklch, var(--c-ink) 5%, var(--c-paper));
+  --secondary-foreground: var(--c-ink);
+  --muted: color-mix(in oklch, var(--c-ink) 5%, var(--c-paper));
+  --muted-foreground: color-mix(in oklch, var(--c-ink) 64%, var(--c-paper));
+  --accent: color-mix(in oklch, var(--c-primary) 8%, var(--c-paper));
+  --accent-foreground: var(--c-ink);
+  --warning: var(--c-warning);
+  --warning-soft: color-mix(in oklch, var(--c-warning) 12%, var(--c-paper));
+  --danger: oklch(0.55 0.19 28);
+  --destructive: var(--danger);
+  --border: color-mix(in oklch, var(--c-ink) 12%, var(--c-paper));
+  --input: color-mix(in oklch, var(--c-ink) 20%, var(--c-paper));
+  --ring: var(--c-primary);
+  /* The passage a source panel marks: a quiet tint of the ink blue. */
+  --marker: color-mix(in oklch, var(--c-primary) 22%, var(--c-surface));
+  --marker-soft: color-mix(in oklch, var(--c-primary) 8%, var(--c-surface));
+  --chart-1: var(--c-primary);
+  --chart-2: color-mix(in oklch, var(--c-primary) 60%, var(--c-paper));
+  --chart-3: color-mix(in oklch, var(--c-primary) 35%, var(--c-paper));
+  --chart-4: color-mix(in oklch, var(--c-ink) 40%, var(--c-paper));
+  --chart-5: color-mix(in oklch, var(--c-ink) 20%, var(--c-paper));
+  --radius: 0.5rem;
+  --sidebar: var(--c-paper);
+  --sidebar-foreground: var(--c-ink);
+  --sidebar-primary: var(--c-primary);
+  --sidebar-primary-foreground: var(--c-surface);
+  --sidebar-accent: color-mix(in oklch, var(--c-ink) 6%, var(--c-paper));
+  --sidebar-accent-foreground: var(--c-ink);
+  --sidebar-border: color-mix(in oklch, var(--c-ink) 10%, var(--c-paper));
+  --sidebar-ring: var(--c-primary);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --c-primary: oklch(0.72 0.1 255);
+  --c-paper: oklch(0.17 0.012 255);
+  --c-surface: oklch(0.21 0.014 255);
+  --c-ink: oklch(0.94 0.008 255);
+  --c-warning: oklch(0.78 0.14 65);
+
+  --primary-foreground: oklch(0.17 0.012 255);
+  --danger: oklch(0.7 0.17 28);
+  --warning-soft: color-mix(in oklch, var(--c-warning) 16%, var(--c-paper));
+  --marker: color-mix(in oklch, var(--c-primary) 30%, var(--c-surface));
+  --marker-soft: color-mix(in oklch, var(--c-primary) 12%, var(--c-surface));
+  --sidebar-primary-foreground: oklch(0.17 0.012 255);
 }
 
 @layer base {
@@ -134,6 +132,6 @@
     @apply bg-background text-foreground;
   }
   html {
-    @apply font-sans;
+    @apply bg-background font-sans;
   }
 }

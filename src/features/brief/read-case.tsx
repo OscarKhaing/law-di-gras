@@ -321,3 +321,36 @@ export function CheckClio({ matterId, fingerprint }: { matterId: number; fingerp
     </div>
   );
 }
+
+/** "Regenerate brief" in the matter header: read the matter from Clio again and write the brief afresh. */
+export function RegenerateBrief({ matterId }: { matterId: number }) {
+  const { progress, refreshing, run } = useReading(matterId);
+  const busy = progress.phase === "running" || refreshing;
+  return (
+    <div className="flex flex-col items-start gap-2 sm:items-end">
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={() => run()}
+        disabled={busy}
+        title="Reads the matter from Clio again and writes a new brief. Takes a few minutes and costs about a dollar."
+      >
+        {busy && <LoaderCircleIcon className="animate-spin" />}
+        {busy ? "Regenerating" : "Regenerate brief"}
+      </Button>
+      {progress.phase !== "idle" && (
+        <div className="w-full max-w-sm rounded-lg border bg-card p-3 text-left">
+          <Steps progress={progress} />
+          {progress.phase === "failed" && (
+            <Failure progress={progress} onRetry={() => run(progress.step === 3 ? 3 : 1)} onSkip={() => run(3)} />
+          )}
+          {progress.phase === "done" && (
+            <p className="mt-2 text-sm text-muted-foreground" role="status">
+              {refreshing ? "Opening the new brief" : "The brief is written."}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

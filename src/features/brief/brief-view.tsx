@@ -1,95 +1,94 @@
+"use client";
+
 import type { CaseFile } from "@/features/cases/schema";
+import type { Parties } from "@/features/matters/schema";
 import type { ShareStatus } from "@/features/shares/schema";
-import { Attention } from "./attention";
-import { Flags } from "./flags";
-import { FullFile } from "./full-file";
-import { Glance } from "./glance";
-import { CaseHeader } from "./header";
-import { HowMade } from "./how-made";
-import { Injuries } from "./injuries";
-import { Moments } from "./moments";
-import { Money } from "./money";
-import { Providers } from "./providers";
+import { CoverageBar } from "./coverage-bar";
+import { FactsPanel, type UpdateHead } from "./facts-panel";
+import { KeyMoments } from "./key-moments";
+import { MatterHeader } from "./matter-header";
 import { ReadCase } from "./read-case";
-import type { IndexUsage, SectionProps, StoredBrief } from "./schema";
-import { SinceStrip } from "./since-strip";
-import { SourceLinks, SourceProvider } from "./source-panel";
+import { Risks } from "./risks";
+import type { StoredBrief } from "./schema";
+import { SourceProvider } from "./source-panel";
+import { WaitingOn } from "./waiting-on";
+import { WhereItStands } from "./where-it-stands";
+
+const written = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 
 /**
- * A case, read top to bottom. With a brief: the bottom line, what is new, the facts, the money, the
- * moments that matter, what needs doing, the weaknesses, the injuries, the providers, then the whole
- * file. Without one: the file as read from Clio and the control that writes the brief.
+ * One matter, read as a document: the header, then the brief on the left and the facts beside it.
+ * Every figure, date and count is worked out in code; the model wrote only the sentences, and each
+ * of those carries the chips of its sources.
  */
 export function BriefView({
   file,
   stored,
   shares,
-  index,
+  heads,
+  parties,
+  injury,
+  solDays,
+  solMet,
+  stale,
   today,
-  photoUrl,
 }: {
   file: CaseFile;
   stored: StoredBrief | null;
   shares: ShareStatus[];
-  index: IndexUsage | null;
+  heads: Record<string, UpdateHead>;
+  parties: Parties;
+  injury: string;
+  solDays: number | null;
+  solMet: boolean;
+  stale: boolean;
   today: string;
-  photoUrl: string | null;
 }) {
-  if (!stored) {
-    return (
-      <SourceProvider file={file}>
-        <div className="space-y-10">
-          <CaseHeader file={file} photoUrl={photoUrl}>
-            {file.description && <p className="max-w-prose font-serif text-[15px] leading-snug">{file.description}</p>}
-          </CaseHeader>
-          <ReadCase matterId={file.matterId} situation="no brief" />
-          <SinceStrip file={file} today={today} />
-          <FullFile file={file} />
-        </div>
-      </SourceProvider>
-    );
-  }
-
-  const section: SectionProps = { file, stored, shares, index, today };
-  const { brief } = stored;
-
   return (
     <SourceProvider file={file}>
-      <div className="space-y-10">
-        <CaseHeader file={file} photoUrl={photoUrl}>
-          {brief.incident.text ? (
-            <div className="max-w-prose space-y-1">
-              <p className="font-serif text-[15px] leading-snug">{brief.incident.text}</p>
-              <SourceLinks evidence={brief.incident.evidence} />
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 pb-16">
+        <MatterHeader
+          file={file}
+          injury={injury}
+          solDays={solDays}
+          solMet={solMet}
+          stale={stale}
+          fingerprint={file.fingerprint}
+        />
+        {!stored ? (
+          <ReadCase matterId={file.matterId} situation="no brief" />
+        ) : (
+          <>
+            {!stored.current && <ReadCase matterId={file.matterId} situation="stale" />}
+            <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
+              <div className="order-2 flex min-w-0 flex-1 flex-col gap-10 lg:order-1 lg:max-w-[760px]">
+                <WhereItStands brief={stored.brief} />
+                <CoverageBar file={file} brief={stored.brief} />
+                <KeyMoments brief={stored.brief} />
+                <WaitingOn file={file} brief={stored.brief} parties={parties} today={today} />
+                <Risks brief={stored.brief} />
+                <p className="text-xs text-muted-foreground">
+                  Sentences written by <span className="font-mono">{stored.model}</span> on{" "}
+                  <span className="font-mono">{written.format(new Date(stored.createdAt))}</span> from{" "}
+                  <span className="font-mono">{file.entries.length}</span> entries read from Clio. Dates, sums and day counts are
+                  worked out in code.
+                </p>
+              </div>
+              <div className="order-1 w-full shrink-0 lg:sticky lg:top-20 lg:order-2 lg:max-h-[calc(100svh-6rem)] lg:w-80 lg:overflow-y-auto">
+                <FactsPanel
+                  file={file}
+                  brief={stored.brief}
+                  shares={shares}
+                  heads={heads}
+                  injury={injury}
+                  solDays={solDays}
+                  solMet={solMet}
+                  today={today}
+                />
+              </div>
             </div>
-          ) : (
-            file.description && <p className="max-w-prose font-serif text-[15px] leading-snug">{file.description}</p>
-          )}
-        </CaseHeader>
-
-        {!stored.current && <ReadCase matterId={file.matterId} situation="stale" />}
-
-        <section aria-label="The bottom line" className="max-w-[46rem] space-y-2">
-          {brief.bottomLine.text ? (
-            <>
-              <p className="font-serif text-2xl leading-snug text-pretty">{brief.bottomLine.text}</p>
-              <SourceLinks evidence={brief.bottomLine.evidence} />
-            </>
-          ) : (
-            <p className="text-sm text-muted-foreground">The brief gives no bottom line. Update the brief to write one.</p>
-          )}
-        </section>
-
-        <SinceStrip file={file} today={today} />
-        <Glance {...section} />
-        <Money {...section} />
-        <Moments {...section} />
-        <Attention {...section} />
-        <Flags {...section} />
-        <Injuries {...section} />
-        <Providers {...section} />
-        <FullFile file={file} />
-        <HowMade {...section} />
+          </>
+        )}
       </div>
     </SourceProvider>
   );

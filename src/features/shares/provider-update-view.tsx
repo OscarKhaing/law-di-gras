@@ -1,109 +1,97 @@
-import { StageTrack } from "@/features/cases/stage-track";
+import { NeedsChecklist } from "./needs-checklist";
 import { LocalTime } from "./local-time";
-import { ReplyBox } from "./reply-box";
-import { SECTION_HEADINGS, SECTIONS, sectionOf, type ProviderUpdate, type Reply } from "./schema";
+import { ReplyForm } from "./reply-form";
+import { sectionOf, type ProviderUpdate, type Reply } from "./schema";
+import { StageStepper } from "./stage-stepper";
 
 type Props = {
   update: ProviderUpdate;
   /** What this office has already written back. */
   replies?: Reply[];
-  /** True in the attorney's composer: the page as the office will see it, with replying switched off. */
+  /** True in the attorney's dialog: the page as the office will see it, with replying switched off. */
   preview?: boolean;
   /** The link's token, which a reply is sent with. Left out in a preview. */
   token?: string;
 };
 
+// Never shown to a provider, whatever was published: money, coverage and the firm's view of the case.
+const NEVER = new Set(["coverage"]);
+
 /**
- * The body of the provider's page, drawn from a published update and nothing else. The same
- * component is the live preview in the attorney's composer, so what is checked is what is sent.
- * It lays itself out by the width of its container, not of the window. Words taken from the
- * firm's update are in the serif face; the page's own words are in the sans.
+ * The provider's page, drawn from a published update and nothing else: like an order-tracking
+ * page. The same component is the preview in the attorney's dialog, so what is checked is what is sent.
  */
 export function ProviderUpdateView({ update, replies = [], preview = false, token }: Props) {
-  const current = update.stages.indexOf(update.stage);
-  const sections = SECTIONS.map((section) => ({
-    section,
-    lines: update.lines.filter((line) => sectionOf(line.section) === section),
-  })).filter(({ lines }) => lines.length > 0);
+  const lines = update.lines.filter((line) => !NEVER.has(sectionOf(line.section)));
+  const needs = lines.filter((line) => sectionOf(line.section) === "needs");
+  const news = lines.filter((line) => sectionOf(line.section) !== "needs");
+  const initial = (update.firm.trim()[0] ?? "F").toUpperCase();
 
   return (
-    <article className="@container">
-      <header>
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          An update for <Words>{update.provider}</Words> from <Words>{update.firm}</Words>, about your patient
-        </p>
-        <h1 className="mt-1 font-heading text-3xl font-semibold tracking-tight text-balance @2xl:text-4xl">{update.patient}</h1>
+    <article className="@container flex flex-col gap-8">
+      <header className="flex flex-col gap-4">
+        <div className="flex items-center gap-2.5">
+          <span aria-hidden className="flex size-9 items-center justify-center rounded-md bg-primary font-semibold text-primary-foreground">
+            {initial}
+          </span>
+          <span className="font-medium">{update.firm || "The law firm"}</span>
+        </div>
+        <div className="flex flex-col gap-1">
+          <p className="text-sm text-muted-foreground">Case update for {update.provider}, about your patient</p>
+          <h1 className="text-3xl font-semibold tracking-tight text-balance">{update.patient}</h1>
+        </div>
       </header>
 
-      <section className="mt-8">
-        <h2 className="font-heading text-xl font-semibold">This case is active</h2>
-        {update.stage ? (
-          <>
-            <div className="mt-2 font-serif text-lg">
-              <StageTrack stage={update.stage} stages={update.stages} />
-            </div>
-            {current >= 0 && update.stages.length > 1 && (
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                Stage {current + 1} of {update.stages.length}. The firm&rsquo;s stages, in order:{" "}
-                {update.stages.map((name, index) => (
-                  <span key={name}>
-                    {index > 0 && ", "}
-                    <span className={index === current ? "font-serif text-[15px] font-semibold text-foreground" : undefined}>{name}</span>
-                  </span>
-                ))}
-                .
+      <section aria-labelledby="stage" className="flex flex-col gap-3">
+        <h2 id="stage" className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          Where the case is
+        </h2>
+        <StageStepper stage={update.stage} stages={update.stages} />
+      </section>
+
+      <section aria-labelledby="needs" className="flex flex-col gap-3">
+        <h2 id="needs" className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          What we need from you
+        </h2>
+        <NeedsChecklist needs={needs} replies={replies} />
+      </section>
+
+      <section aria-labelledby="latest" className="flex flex-col gap-3">
+        <h2 id="latest" className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          Latest update from the firm
+        </h2>
+        {news.length > 0 ? (
+          <div className="flex flex-col gap-2 rounded-lg border bg-card p-4">
+            {news.map((line) => (
+              <p key={line.id} className="leading-relaxed text-pretty">
+                {line.text}
               </p>
-            )}
-          </>
+            ))}
+            <p className="text-xs text-muted-foreground">
+              Updated <LocalTime iso={update.publishedAt} />
+            </p>
+          </div>
         ) : (
-          <p className="mt-2 text-sm text-muted-foreground">The firm has not said which stage it is at.</p>
+          <p className="text-sm text-muted-foreground">
+            {preview ? "No update lines are included yet." : "The firm has not added a note to this update."}
+          </p>
         )}
       </section>
 
-      {sections.length > 0 ? (
-        <div className="mt-8 border-t">
-          {sections.map(({ section, lines }) => (
-            <section key={section} className="grid gap-x-8 gap-y-2 border-b py-5 @2xl:grid-cols-[12.5rem_1fr]">
-              <h2 className="text-sm leading-relaxed font-medium @2xl:pt-1">
-                {section === "needs" ? (
-                  // The one thing on this page the office is asked to act on.
-                  <mark className="bg-marker box-decoration-clone px-1 py-0.5 text-foreground">{SECTION_HEADINGS[section]}</mark>
-                ) : (
-                  SECTION_HEADINGS[section]
-                )}
-              </h2>
-              <ul className={section === "needs" ? "space-y-7" : "space-y-3"}>
-                {lines.map((line) => (
-                  <li key={line.id}>
-                    <p className="font-serif text-[17px] leading-relaxed text-pretty">{line.text}</p>
-                    {section === "needs" && (
-                      <ReplyBox
-                        token={preview ? undefined : token}
-                        lineId={line.id}
-                        earlier={replies.filter((reply) => reply.lineId === line.id)}
-                      />
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))}
-        </div>
-      ) : (
-        <p className="mt-8 border-y py-5 text-sm text-muted-foreground">
-          {preview
-            ? "No lines are switched on. Switch on the lines this office should see."
-            : "The firm has not added any details to this update yet."}
-        </p>
-      )}
+      <section aria-labelledby="reply" className="flex flex-col gap-3">
+        <h2 id="reply" className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          Reply to the firm
+        </h2>
+        <ReplyForm token={preview ? undefined : token} about={(needs.length ? needs : lines).slice(0, 20)} earlier={replies} />
+      </section>
 
-      <footer className="mt-6 space-y-1.5 text-sm leading-relaxed text-muted-foreground">
+      <footer className="flex flex-col gap-1 border-t pt-4 text-sm text-muted-foreground">
         <p>
-          Last updated <LocalTime iso={update.publishedAt} />. This link works until <LocalTime iso={update.expiresAt} style="date" />.
+          This link works until <LocalTime iso={update.expiresAt} style="date" />.
         </p>
         {update.contactLine && (
           <p>
-            Questions about this update: <ContactLine text={update.contactLine} />
+            Questions: <ContactLine text={update.contactLine} />
           </p>
         )}
       </footer>
@@ -111,16 +99,11 @@ export function ProviderUpdateView({ update, replies = [], preview = false, toke
   );
 }
 
-/** Words that come from the firm's update, set apart from the page's own. */
-function Words({ children }: { children: React.ReactNode }) {
-  return <span className="font-serif text-[15px] text-foreground">{children}</span>;
-}
-
 /** Who to contact at the firm; an email address in the line can be tapped. */
 function ContactLine({ text }: { text: string }) {
   const parts = text.split(/([^\s,;<>]+@[^\s,;<>]+\.[^\s,;<>]+)/);
   return (
-    <Words>
+    <span className="text-foreground">
       {parts.map((part, index) =>
         index % 2 === 1 ? (
           <a key={index} href={`mailto:${part}`} className="text-primary underline underline-offset-2">
@@ -130,6 +113,6 @@ function ContactLine({ text }: { text: string }) {
           part
         ),
       )}
-    </Words>
+    </span>
   );
 }

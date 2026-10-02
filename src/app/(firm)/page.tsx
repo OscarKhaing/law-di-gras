@@ -1,93 +1,56 @@
-import Link from "next/link";
+import { Suspense } from "react";
 import { buttonVariants } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { LocalTime } from "@/features/cases/local-time";
-import type { CaseSummary } from "@/features/cases/schema";
-import { listMatters } from "@/features/cases/server";
-import { StageTrack } from "@/features/cases/stage-track";
+import { MattersTable } from "@/features/matters/matters-table";
+import type { MatterRow } from "@/features/matters/schema";
+import { listMatterRows } from "@/features/matters/server";
 
-// Read on every request: the list is the matters in Clio now, and which of them have been read.
+// Read on every request: the list is the matters in Clio now, and the figures of those read so far.
 export const dynamic = "force-dynamic";
 
-export default async function CasesPage() {
+export default async function MattersPage() {
   let connected = false;
-  let matters: CaseSummary[] = [];
+  let rows: MatterRow[] = [];
   let failure = "";
   try {
-    ({ connected, matters } = await listMatters());
+    ({ connected, rows } = await listMatterRows());
   } catch (err) {
     failure = (err as { message?: string } | null)?.message ?? "Clio or the database could not be reached.";
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <div>
-        <h1 className="font-heading text-3xl font-semibold tracking-tight">Cases</h1>
-        <p className="mt-1 text-muted-foreground">The matters in your Clio account. Open one to read its brief.</p>
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
+      <div className="flex flex-col gap-1">
+        <h1 className="text-2xl font-semibold tracking-tight">Matters</h1>
+        <p className="text-muted-foreground">Every matter in your Clio account. Open one to read its brief.</p>
       </div>
-
       {failure ? (
-        <div role="alert" className="max-w-prose border-l-2 border-destructive pl-3 text-sm">
-          <p className="font-medium text-destructive">The cases could not be loaded</p>
-          <p className="mt-1">{failure}</p>
-          <p className="mt-1 text-muted-foreground">
+        <section role="alert" className="flex max-w-prose flex-col gap-1 rounded-lg border border-danger/40 bg-card p-4 text-sm">
+          <p className="font-medium text-danger">The matters could not be loaded</p>
+          <p>{failure}</p>
+          <p className="text-muted-foreground">
             Reload the page. If Clio is refusing the connection,{" "}
-            <a href="/api/clio/connect" className="text-foreground underline underline-offset-2">
+            <a href="/api/clio/connect" className="text-primary underline underline-offset-2">
               connect Clio again
             </a>
             .
           </p>
-        </div>
+        </section>
       ) : !connected ? (
-        <div className="max-w-prose space-y-4 border-y py-5">
+        <section className="flex max-w-prose flex-col items-start gap-4 rounded-lg border bg-card p-5">
           <p className="text-sm">
-            Case Desk reads each case from Clio, so it needs your permission to read your Clio account. It only reads:
-            nothing in Clio is changed.
+            Case Desk reads each matter from Clio, so it needs permission to read your Clio account. It only reads: nothing in
+            Clio is changed.
           </p>
-          <a href="/api/clio/connect" className={buttonVariants({ size: "lg" })}>
+          <a href="/api/clio/connect" className={buttonVariants()}>
             Connect Clio
           </a>
-        </div>
-      ) : matters.length === 0 ? (
-        <p className="max-w-prose border-y py-5 text-sm text-muted-foreground">
-          Clio is connected, but the account has no matters. Open a matter in Clio and it will be listed here.
-        </p>
+        </section>
+      ) : rows.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Clio is connected, but the account has no matters yet.</p>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="pl-0 text-muted-foreground">Client</TableHead>
-              <TableHead className="text-muted-foreground">Matter</TableHead>
-              <TableHead className="text-muted-foreground">Stage</TableHead>
-              <TableHead className="pr-0 text-right text-muted-foreground">Read from Clio</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {matters.map((matter) => (
-              <TableRow key={matter.matterId} className="relative hover:bg-transparent">
-                <TableCell className="py-3.5 pl-0">
-                  {/* The link's ::after covers the row, so the whole row opens the case. */}
-                  <Link
-                    href={`/cases/${matter.matterId}`}
-                    className="font-heading text-lg font-semibold tracking-tight underline-offset-4 outline-none after:absolute after:inset-0 hover:underline focus-visible:underline"
-                  >
-                    {matter.client || "Client not named in Clio"}
-                  </Link>
-                  {matter.description && (
-                    <p className="max-w-md truncate text-sm text-muted-foreground">{matter.description}</p>
-                  )}
-                </TableCell>
-                <TableCell className="tabular-nums">{matter.number}</TableCell>
-                <TableCell>
-                  <StageTrack stage={matter.stage} stages={matter.stages} />
-                </TableCell>
-                <TableCell className="pr-0 text-right text-muted-foreground">
-                  {matter.syncedAt ? <LocalTime iso={matter.syncedAt} /> : "Not read yet"}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <Suspense>
+          <MattersTable rows={rows} />
+        </Suspense>
       )}
     </div>
   );
