@@ -27,7 +27,8 @@ export type Entry = {
    * Kind-specific details. Known keys:
    * task: status ("pending" | "complete" ...), priority, completedAt
    * event: startAt, endAt, location
-   * expense: amount
+   * expense: amount, billable (false for a charge recorded on the matter that the firm did not pay
+   *   itself, such as a provider's bill)
    * email, call: from, to (names, comma separated)
    * document: folder, pages, bytes, versionId, storagePath, contentType
    * field: fieldType
@@ -52,13 +53,15 @@ export type CaseFile = {
   openDate: string;
   limitationDate: string;
   client: { ref: string; name: string };
+  /** The firm, from the Clio account and the user who connected it. */
+  firm: { name: string; user: string; email: string };
   entries: Entry[];
   syncedAt: string;
   /** Changes whenever anything in Clio changes; a brief is cached against it. */
   fingerprint: string;
 };
 
-/** A row of the case list. */
+/** A row of the case list. `syncedAt` is null for a matter in Clio that has not been read yet. */
 export type CaseSummary = {
   matterId: number;
   number: string;
@@ -66,7 +69,7 @@ export type CaseSummary = {
   description: string;
   stage: string;
   stages: string[];
-  syncedAt: string;
+  syncedAt: string | null;
 };
 
 /**
@@ -116,11 +119,14 @@ export function lastClientContact(file: CaseFile): Entry | null {
   return calls[0] ?? null;
 }
 
-/** What the firm has paid out on the case: the sum of its expense entries. */
+/** The firm's own costs on the case: expense entries that are billable (see `facts.billable`). */
+export function firmCosts(file: CaseFile): Entry[] {
+  return file.entries.filter((entry) => entry.kind === "expense" && entry.facts.billable !== false);
+}
+
+/** What the firm has paid out on the case: the sum of its own cost entries. */
 export function firmSpend(file: CaseFile): number {
-  return file.entries
-    .filter((entry) => entry.kind === "expense")
-    .reduce((sum, entry) => sum + (Number(entry.facts.amount) || 0), 0);
+  return firmCosts(file).reduce((sum, entry) => sum + (Number(entry.facts.amount) || 0), 0);
 }
 
 /**
